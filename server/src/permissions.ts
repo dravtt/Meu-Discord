@@ -74,7 +74,7 @@ export async function channelPermissions(channel: ChannelRow, userId: string, db
   if (base === null) return 0;
   if (base & P.ADMINISTRATOR) return ALL_PERMISSIONS;
 
-  const sourceId = channel.type === 'thread' && channel.parent_id ? channel.parent_id : channel.id;
+  const sourceId = await overwriteSource(channel, db);
   const overwrites = await query<{ target_id: string; target_type: string; allow: number; deny: number }>(
     'SELECT target_id, target_type, allow, deny FROM overwrites WHERE channel_id = $1', [sourceId], db);
   if (overwrites.length === 0) return base;
@@ -94,6 +94,18 @@ export async function channelPermissions(channel: ChannelRow, userId: string, db
   const own = overwrites.find((o) => o.target_type === 'member' && o.target_id === userId);
   if (own) perms = (perms & ~own.deny) | own.allow;
   return perms;
+}
+
+/**
+ * Which channel's overwrites apply: threads use their parent channel, and a channel without
+ * overwrites of its own follows its category ("synced" permissions).
+ */
+export async function overwriteSource(channel: ChannelRow, db: Queryable = pool): Promise<string> {
+  let target = channel;
+  if (channel.type === 'thread' && channel.parent_id) target = (await one<ChannelRow>('SELECT * FROM channels WHERE id = $1', [channel.parent_id], db)) ?? channel;
+  if (target.type === 'category' || !target.parent_id) return target.id;
+  const own = await one('SELECT 1 FROM overwrites WHERE channel_id = $1 LIMIT 1', [target.id], db);
+  return own ? target.id : target.parent_id;
 }
 
 export async function getChannel(channelId: string, db: Queryable = pool): Promise<ChannelRow> {

@@ -3,7 +3,7 @@ import { Server, type Socket } from 'socket.io';
 import { config } from './config.js';
 import { query, one } from './db.js';
 import { verifyToken } from './auth.js';
-import { channelPermissions, getChannel, has, P, type ChannelRow } from './permissions.js';
+import { channelPermissions, getChannel, has, overwriteSource, P, type ChannelRow } from './permissions.js';
 
 let io: Server | null = null;
 
@@ -135,8 +135,7 @@ export async function emitToChannel(channel: ChannelRow, event: string, payload:
     if (rooms.length) io.to(rooms).emit(event, payload);
     return;
   }
-  const sourceId = channel.type === 'thread' && channel.parent_id ? channel.parent_id : channel.id;
-  const restricted = await one('SELECT 1 FROM overwrites WHERE channel_id = $1 LIMIT 1', [sourceId]);
+  const restricted = await one('SELECT 1 FROM overwrites WHERE channel_id = $1 LIMIT 1', [await overwriteSource(channel)]);
   if (!restricted) {
     const target = exceptUserId ? io.to(`server:${channel.server_id}`).except(`user:${exceptUserId}`) : io.to(`server:${channel.server_id}`);
     target.emit(event, payload);

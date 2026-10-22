@@ -254,3 +254,22 @@ describe('presence and voice', () => {
     anaSocket.close();
   });
 });
+
+describe('category permission sync', () => {
+  it('channels without overwrites follow a private category', async () => {
+    const srv = await api().post('/api/servers').set(auth(ana)).send({ name: 'Sync' }).expect(201);
+    const inv = await api().post(`/api/servers/${srv.body.id}/invites`).set(auth(ana)).send({}).expect(201);
+    await api().post(`/api/invites/${inv.body.code}`).set(auth(bia)).expect(200);
+    const cat = await api().post(`/api/servers/${srv.body.id}/channels`).set(auth(ana)).send({ name: 'Staff', type: 'category', private: true }).expect(201);
+    const child = await api().post(`/api/servers/${srv.body.id}/channels`).set(auth(ana)).send({ name: 'avisos', parentId: cat.body.id }).expect(201);
+    await api().get(`/api/channels/${child.body.id}/messages`).set(auth(bia)).expect(404);
+    await api().get(`/api/channels/${child.body.id}/messages`).set(auth(ana)).expect(200);
+  });
+
+  it('uploads images for avatars', async () => {
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f6f0000000049454e44ae426082', 'hex');
+    const res = await api().post('/api/uploads/image').set(auth(ana)).attach('file', png, { filename: 'a.png', contentType: 'image/png' }).expect(201);
+    await api().patch('/api/users/@me').set(auth(ana)).send({ avatarUrl: res.body.url }).expect(200);
+    await api().post('/api/uploads/image').set(auth(ana)).attach('file', Buffer.from('x'), { filename: 'a.txt', contentType: 'text/plain' }).expect(400);
+  });
+});

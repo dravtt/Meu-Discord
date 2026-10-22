@@ -11,6 +11,7 @@ import { messagesRouter } from './routes/messages.js';
 import { dmsRouter } from './routes/dms.js';
 import { invitesRouter } from './routes/invites.js';
 import { voiceRouter } from './routes/voice.js';
+import { uploadsRouter } from './routes/uploads.js';
 
 export function createApp() {
   const app = express();
@@ -22,7 +23,7 @@ export function createApp() {
     setHeaders: (res) => { res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"); res.setHeader('X-Content-Type-Options', 'nosniff'); },
   }));
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
-  for (const router of [authRouter, relationshipsRouter, serversRouter, channelsRouter, messagesRouter, dmsRouter, invitesRouter, voiceRouter]) {
+  for (const router of [authRouter, relationshipsRouter, serversRouter, channelsRouter, messagesRouter, dmsRouter, invitesRouter, voiceRouter, uploadsRouter]) {
     app.use('/api', router);
   }
   app.use(errorHandler);
