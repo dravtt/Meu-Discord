@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useState } from 'react';
 import { api } from '../../lib/api';
 import { set, useStore } from '../../lib/store';
@@ -6,7 +7,7 @@ import { Avatar } from '../Avatar';
 import { Dialog, closeModal } from '../Modal';
 
 export function NewGroupModal() {
-  const friends = useStore((s) => s.relationships.filter((r) => r.type === 'friend'));
+  const friends = useStore(useShallow((s) => s.relationships.filter((r) => r.type === 'friend')));
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   async function create() {

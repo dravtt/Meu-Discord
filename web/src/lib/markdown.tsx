@@ -41,7 +41,7 @@ function inline(text: string, serverId: string | null, onChannel?: (id: string) 
       const user = s.servers[serverId ?? '']?.members.find((m) => m.user.id === id)?.user
         ?? Object.values(s.dms).flatMap((d) => d.recipients ?? []).find((u) => u.id === id)
         ?? s.relationships.find((r) => r.user.id === id)?.user;
-      out.push(<span key={k} className={`mention ${id === s.me?.id ? 'me' : ''}`}>@{user ? memberName(serverId, user) : 'usuário'}</span>);
+      out.push(<span key={k} className={`mention ${id === s.me?.id ? 'mention-self' : ''}`}>@{user ? memberName(serverId, user) : 'usuário'}</span>);
     } else if (t.startsWith('<#')) {
       const ch = findChannel(t.slice(2, -1));
       out.push(<span key={k} className="mention channel" onClick={() => ch && onChannel?.(ch.id)}>#{ch?.name ?? 'canal'}</span>);

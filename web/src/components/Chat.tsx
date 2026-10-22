@@ -152,7 +152,7 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
       <article className={`message ${grouped && !showDay ? 'grouped' : ''} ${mentioned ? 'mentioned' : ''} ${m.pending ? 'pending' : ''}`}>
         {m.replyTo && (
           <div className="reply-ref" onClick={() => document.getElementById(`msg-${m.replyTo!.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
-            ↱ {m.replyTo.deleted ? <em>Mensagem original apagada</em> : <><strong>@{m.replyTo.authorName}</strong> {m.replyTo.content}</>}
+            ↱ {m.replyTo.deleted ? <em>Mensagem original apagada</em> : <><strong>@{m.replyTo.authorName}</strong> {renderContent((m.replyTo.content ?? '').replace(/\n/g, ' '), serverId)}</>}
           </div>
         )}
         <div className="message-row" id={`msg-${m.id}`}>

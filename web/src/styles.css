@@ -198,7 +198,7 @@ h4 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; color: var(
 .reply-ref { margin-left: 54px; font-size: 13px; color: var(--text-2); cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .reply-ref:hover { color: var(--text); }
 .mention { background: var(--accent-soft); color: #5eead4; border-radius: 4px; padding: 0 3px; font-weight: 500; cursor: pointer; }
-.mention.me { background: rgba(245, 158, 11, .25); color: #fde68a; }
+.mention.mention-self { background: rgba(245, 158, 11, .25); color: #fde68a; }
 .inline-code { background: var(--bg-0); border-radius: 4px; padding: 1px 4px; font-size: 13px; }
 .codeblock { background: var(--bg-0); border: 1px solid var(--border); border-radius: 8px; padding: 10px; overflow-x: auto; font-size: 13px; margin: 4px 0; white-space: pre; }
 .spoiler { background: #0b0d10; color: transparent; border-radius: 4px; cursor: pointer; }

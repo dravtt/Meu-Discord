@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useState } from 'react';
 import { useStore, set, dmName, memberName } from '../lib/store';
 import { has, P } from '../lib/permissions';
@@ -25,7 +26,7 @@ export function Sidebar() {
 }
 
 function HomeSidebar() {
-  const dms = useStore((s) => Object.values(s.dms).sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? '')));
+  const dms = useStore(useShallow((s) => Object.values(s.dms).sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''))));
   const me = useStore((s) => s.me);
   const view = useStore((s) => s.view);
   const readStates = useStore((s) => s.readStates);

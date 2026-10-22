@@ -66,6 +66,7 @@ export function Composer({ channel, canAttach, placeholder }: { channel: Channel
     setText('');
     setFiles([]);
     mentionMap.current.clear();
+    lastTyping.current = 0;
     set((s) => ({ replyTo: { ...s.replyTo, [channel.id]: null } }));
     if (files.length === 0) addMessage(optimistic);
     try {

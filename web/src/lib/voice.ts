@@ -71,11 +71,17 @@ export async function joinCall(channelId: string) {
       .on(RoomEvent.ActiveSpeakersChanged, syncTiles)
       .on(RoomEvent.Disconnected, () => { if (room) void leaveCall(); });
     await room.connect(url, token);
-    if (canSpeak) await room.localParticipant.setMicrophoneEnabled(!useCall.getState().muted).catch(() => useCall.setState({ muted: true }));
-    else useCall.setState({ muted: true });
     useCall.setState({ connecting: false });
-    sendState();
     syncTiles();
+    // The microphone prompt can take a while; do not hold the "connecting" state on it.
+    if (canSpeak) {
+      room.localParticipant.setMicrophoneEnabled(!useCall.getState().muted)
+        .catch(() => useCall.setState({ muted: true }))
+        .finally(() => { sendState(); syncTiles(); });
+    } else {
+      useCall.setState({ muted: true });
+      sendState();
+    }
   } catch (err) {
     useCall.setState({ connecting: false, error: (err as Error).message || 'Falha ao conectar na voz' });
     await leaveCall(true);

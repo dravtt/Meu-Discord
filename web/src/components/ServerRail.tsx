@@ -1,10 +1,11 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useStore, set } from '../lib/store';
 import { assetUrl } from '../lib/api';
 import { openModal } from './Modal';
 import { AddServerModal } from './modals/ServerModals';
 
 export function ServerRail() {
-  const servers = useStore((s) => s.serverOrder.map((id) => s.servers[id]).filter(Boolean));
+  const servers = useStore(useShallow((s) => s.serverOrder.map((id) => s.servers[id]).filter(Boolean)));
   const view = useStore((s) => s.view);
   const readStates = useStore((s) => s.readStates);
   const dms = useStore((s) => s.dms);

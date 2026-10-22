@@ -28,7 +28,10 @@ export function App() {
       })
       .catch((e) => setError(e.message));
     onNotificationClick((channelId) => openChannel(channelId));
-    return () => { cancelled = true; socket?.disconnect(); };
+    // Invite links pasted into the address bar while the app is open.
+    const onHash = () => { void joinInviteFromUrl(); };
+    window.addEventListener('hashchange', onHash);
+    return () => { cancelled = true; socket?.disconnect(); window.removeEventListener('hashchange', onHash); };
   }, [token]);
 
   // Unread mention count for the window title / taskbar badge.
