@@ -11,7 +11,8 @@ services:
   # Voice/video media server. Dev keys (devkey/secret) match server/.env.example.
   livekit:
     image: livekit/livekit-server:v1.8
-    command: --dev --bind 0.0.0.0
+    # --node-ip 127.0.0.1: on Docker Desktop the container IP is unreachable from the browser.
+    command: --dev --bind 0.0.0.0 --node-ip 127.0.0.1
     ports:
       - "7880:7880"
       - "7881:7881"
