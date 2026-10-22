@@ -1,0 +1,30 @@
+import express from 'express';
+import cors from 'cors';
+import path from 'node:path';
+import { config } from './config.js';
+import { errorHandler } from './errors.js';
+import { authRouter } from './routes/auth.js';
+import { relationshipsRouter } from './routes/relationships.js';
+import { serversRouter } from './routes/servers.js';
+import { channelsRouter } from './routes/channels.js';
+import { messagesRouter } from './routes/messages.js';
+import { dmsRouter } from './routes/dms.js';
+import { invitesRouter } from './routes/invites.js';
+import { voiceRouter } from './routes/voice.js';
+
+export function createApp() {
+  const app = express();
+  app.use(cors({ origin: config.webOrigin, credentials: true }));
+  app.use(express.json({ limit: '1mb' }));
+  app.use('/uploads', express.static(path.resolve(config.uploadDir), {
+    maxAge: '7d',
+    // Uploaded HTML/SVG must not run as part of our origin.
+    setHeaders: (res) => { res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"); res.setHeader('X-Content-Type-Options', 'nosniff'); },
+  }));
+  app.get('/api/health', (_req, res) => res.json({ ok: true }));
+  for (const router of [authRouter, relationshipsRouter, serversRouter, channelsRouter, messagesRouter, dmsRouter, invitesRouter, voiceRouter]) {
+    app.use('/api', router);
+  }
+  app.use(errorHandler);
+  return app;
+}

@@ -1,0 +1,7 @@
+node_modules
+dist
+.env
+server/uploads
+desktop/out
+*.log
+test-uploads
