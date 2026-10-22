@@ -17,5 +17,6 @@ export const config = {
     apiSecret: process.env.LIVEKIT_API_SECRET ?? 'secret',
   },
   uploadDir: process.env.UPLOAD_DIR ?? './uploads',
+  webDist: process.env.WEB_DIST ?? '../web/dist',
   maxUploadBytes: 25 * 1024 * 1024,
 };

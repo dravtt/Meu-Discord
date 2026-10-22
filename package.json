@@ -2,12 +2,18 @@
   "name": "nexo",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["server", "web", "desktop"],
+  "workspaces": [
+    "server",
+    "web",
+    "desktop"
+  ],
   "scripts": {
     "dev:server": "npm run dev --workspace server",
     "dev:web": "npm run dev --workspace web",
     "build": "npm run build --workspace server && npm run build --workspace web",
+    "start": "npm start --workspace server",
     "test": "npm test --workspace server",
-    "desktop": "npm start --workspace desktop"
+    "desktop": "npm start --workspace desktop",
+    "dist:win": "npm run dist:win --workspace desktop"
   }
 }

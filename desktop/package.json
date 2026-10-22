@@ -1,0 +1,63 @@
+{
+  "name": "@nexo/desktop",
+  "productName": "Nexo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Aplicativo desktop do Nexo",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis",
+    "dist:mac": "electron-builder --mac dmg",
+    "dist:linux": "electron-builder --linux AppImage"
+  },
+  "build": {
+    "appId": "app.nexo.desktop",
+    "productName": "Nexo",
+    "directories": {
+      "output": "out"
+    },
+    "files": [
+      "src/**",
+      "assets/**",
+      "package.json"
+    ],
+    "protocols": [
+      {
+        "name": "Nexo",
+        "schemes": [
+          "nexo"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.png",
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    },
+    "mac": {
+      "icon": "assets/icon.png",
+      "category": "public.app-category.social-networking"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "category": "Network"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://SEU-SERVIDOR/downloads"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
+}

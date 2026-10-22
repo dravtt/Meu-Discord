@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import { config } from './config.js';
 import { errorHandler } from './errors.js';
 import { authRouter } from './routes/auth.js';
@@ -25,6 +26,12 @@ export function createApp() {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   for (const router of [authRouter, relationshipsRouter, serversRouter, channelsRouter, messagesRouter, dmsRouter, invitesRouter, voiceRouter, uploadsRouter]) {
     app.use('/api', router);
+  }
+  // In production the API also serves the web build, so web and desktop share one origin.
+  const webDist = path.resolve(config.webDist);
+  if (existsSync(path.join(webDist, 'index.html'))) {
+    app.use(express.static(webDist, { index: false, maxAge: '1h' }));
+    app.get(/^\/(?!api\/|uploads\/|socket\.io\/).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
   }
   app.use(errorHandler);
   return app;
