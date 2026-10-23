@@ -18,8 +18,8 @@ export interface User {
   widgets?: Widget[];
 }
 
-/** `cover` is an uploaded image; otherwise Steam's art for `steamId` is shown. */
-export interface Game { name: string; cover: string | null; steamId?: number }
+/** `cover` is an uploaded image; otherwise the Nexo catalog cover (`catalogId`) or Steam's art (`steamId`). */
+export interface Game { name: string; cover: string | null; steamId?: number; catalogId?: string }
 export type Widget =
   | { type: 'favorite'; game: Game | null; note: string }
   | { type: 'games'; games: Game[] }

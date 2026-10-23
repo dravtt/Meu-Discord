@@ -293,10 +293,14 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
   await ana.locator('.we-picked', { hasText: /rocket/i }).waitFor();
   await ana.getByLabel('Comentário').fill('sou Lenda Supersônica');
   await ana.getByRole('button', { name: 'Jogos que eu gosto' }).click();
-  for (const g of ['Minecraft', 'Valorant', 'osu!']) {
+  for (const g of ['Minecraft', 'osu!']) {
     await ana.getByLabel('Buscar jogo').fill(g);
-    await ana.getByRole('button', { name: `Adicionar "${g}" sem capa da Steam` }).click();
+    await ana.getByRole('button', { name: `Adicionar "${g}" sem capa` }).click();
   }
+  // Games outside Steam come from Nexo's own catalog, cover included.
+  await ana.getByLabel('Buscar jogo').fill('valo');
+  await ana.getByRole('option', { name: 'VALORANT' }).click();
+  await ana.locator('.we-game img[src="/games/valorant.jpg"]').waitFor();
   await ana.locator('.preview .widget-games figure').nth(2).waitFor();
   await ana.screenshot({ path: `${SHOTS}/15-profile-editor.png` });
   await ana.getByRole('button', { name: 'Salvar alterações' }).click();
@@ -317,7 +321,7 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
   await ana.locator('.me-popout', { hasText: 'Ver perfil completo' }).waitFor();
   await ana.screenshot({ path: `${SHOTS}/17-me-popout.png` });
   await ana.getByRole('button', { name: 'Ver perfil completo' }).click();
-  await ana.locator('.profile-full .widget-games', { hasText: 'Valorant' }).waitFor();
+  await ana.locator('.profile-full .widget-games', { hasText: 'VALORANT' }).waitFor();
   await ana.keyboard.press('Escape');
 });
 await step('Presença: Bia fica offline para Ana ao sair', async () => {

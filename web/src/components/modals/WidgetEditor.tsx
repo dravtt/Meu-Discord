@@ -63,10 +63,13 @@ function CoverButton({ onUploaded, onError, label = 'Capa' }: { onUploaded: (url
   );
 }
 
+type SearchHit = { name: string; steamId?: number; catalogId?: string };
+const toGame = (h: SearchHit): Game => ({ name: h.name, cover: null, ...(h.catalogId ? { catalogId: h.catalogId } : { steamId: h.steamId }) });
+
 /** Type a name, pick the game from Steam's catalog (cover included) or add it by name only. */
 function GameSearch({ onPick, disabled, placeholder = 'Buscar jogo (ex.: Rocket League)' }: { onPick: (g: Game) => void; disabled?: boolean; placeholder?: string }) {
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<{ steamId: number; name: string }[] | null>(null);
+  const [results, setResults] = useState<SearchHit[] | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     const term = q.trim();
@@ -74,7 +77,7 @@ function GameSearch({ onPick, disabled, placeholder = 'Buscar jogo (ex.: Rocket 
     setLoading(true);
     let live = true;
     const t = setTimeout(() => {
-      api<{ games: { steamId: number; name: string }[] }>(`/games/search?q=${encodeURIComponent(term)}`)
+      api<{ games: SearchHit[] }>(`/games/search?q=${encodeURIComponent(term)}`)
         .then((r) => { if (live) setResults(r.games); })
         .catch(() => { if (live) setResults([]); })
         .finally(() => { if (live) setLoading(false); });
@@ -89,18 +92,18 @@ function GameSearch({ onPick, disabled, placeholder = 'Buscar jogo (ex.: Rocket 
         <Search size={15} />
         <input value={q} maxLength={60} placeholder={placeholder} disabled={disabled} aria-label="Buscar jogo"
           onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Escape') { setQ(''); e.stopPropagation(); } if (e.key === 'Enter' && results?.[0]) pick({ name: results[0].name, cover: null, steamId: results[0].steamId }); }} />
+          onKeyDown={(e) => { if (e.key === 'Escape') { setQ(''); e.stopPropagation(); } if (e.key === 'Enter' && results?.[0]) pick(toGame(results[0])); }} />
       </div>
       {term.length >= 2 && (
         <div className="game-results" role="listbox">
           {loading && !results && <p className="muted small">Buscando…</p>}
           {results?.map((g) => (
-            <button key={g.steamId} role="option" onClick={() => pick({ name: g.name, cover: null, steamId: g.steamId })}>
-              <GameCover game={{ name: g.name, cover: null, steamId: g.steamId }} size="sm" /> <span>{g.name}</span>
+            <button key={g.catalogId ?? g.steamId} role="option" onClick={() => pick(toGame(g))}>
+              <GameCover game={toGame(g)} size="sm" /> <span>{g.name}</span>
             </button>
           ))}
-          {results && results.length === 0 && !loading && <p className="muted small">Não achei na Steam. Você pode adicionar só pelo nome e enviar uma capa.</p>}
-          <button className="add-plain" onClick={() => pick({ name: term, cover: null })}><Plus size={14} /> Adicionar "{term}" sem capa da Steam</button>
+          {results && results.length === 0 && !loading && <p className="muted small">Não achei esse jogo. Você pode adicionar só pelo nome e enviar uma capa.</p>}
+          <button className="add-plain" onClick={() => pick({ name: term, cover: null })}><Plus size={14} /> Adicionar "{term}" sem capa</button>
         </div>
       )}
     </div>

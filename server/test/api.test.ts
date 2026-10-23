@@ -434,6 +434,7 @@ describe('game search', () => {
       expect(res.body.games).toEqual([{ steamId: 252950, name: 'Rocket League' }]);
       globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch;
       expect((await api().get('/api/games/search?q=minecraft').set(auth(ana)).expect(200)).body).toMatchObject({ games: [], unavailable: true });
+      expect((await api().get('/api/games/search?q=valo').set(auth(ana)).expect(200)).body.games[0]).toEqual({ catalogId: 'valorant', name: 'VALORANT' });
       await api().get('/api/games/search?q=a').set(auth(ana)).expect(400);
     } finally { globalThis.fetch = real; }
     const w = [{ type: 'games', games: [{ name: 'Rocket League', cover: null, steamId: 252950 }] }];
