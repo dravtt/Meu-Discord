@@ -141,6 +141,25 @@ await step('Upload de imagem', async () => {
   await bia.getByPlaceholder('Conversar em @Ana').press('Enter');
   await ana.locator('.attachment-img').waitFor();
 });
+await step('Ligação na DM: Bia recusa, depois atende', async () => {
+  await ana.getByTitle('Iniciar chamada').click();
+  await bia.locator('.incoming-call', { hasText: 'Ana' }).waitFor({ timeout: 10000 });
+  await ana.locator('.call-status', { hasText: 'Chamando Bia' }).waitFor();
+  await bia.getByTitle('Recusar').click();
+  await ana.locator('.call-toast', { hasText: 'Bia recusou a chamada' }).waitFor();
+  await ana.locator('.call').waitFor({ state: 'detached' });
+  await ana.getByTitle('Iniciar chamada').click();
+  await bia.locator('.incoming-call').waitFor({ timeout: 10000 });
+  await new Promise((r) => setTimeout(r, 400));
+  await bia.screenshot({ path: `${SHOTS}/09-incoming.png` });
+  await bia.getByTitle('Aceitar').click();
+  await bia.locator('.call-tile').nth(1).waitFor({ timeout: 15000 });
+  await ana.locator('.call-tile').nth(1).waitFor({ timeout: 15000 });
+  await ana.locator('.call-status.ringing').waitFor({ state: 'detached' });
+  await bia.locator('.call-controls').getByTitle('Desconectar').click();
+  await ana.locator('.call-tile').nth(1).waitFor({ state: 'detached', timeout: 15000 });
+  await ana.locator('.call-controls').getByTitle('Desconectar').click();
+});
 await step('Ambas entram no canal de voz com câmera', async () => {
   for (const p of [ana, bia]) {
     await p.getByLabel('Comunidade Nexo').click();

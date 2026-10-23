@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useStore, set, findChannel } from '../lib/store';
 import { has, P } from '../lib/permissions';
-import { useCall } from '../lib/voice';
+import { joinCall, useCall, useIncomingCall } from '../lib/voice';
+import { Phone } from 'lucide-react';
 import { Chat } from './Chat';
 import { FriendsView } from './FriendsView';
 import { MemberList } from './MemberList';
@@ -14,6 +15,8 @@ export function MainPane() {
   const showMembers = useStore((s) => s.showMembers);
   const openThreadId = useStore((s) => s.openThreadId);
   const callChannel = useCall((s) => s.channelId);
+  const ringingHere = useIncomingCall((r) => !!dm && r?.channelId === dm.id);
+  const dmCallers = useStore((s) => (dm ? Object.values(s.voiceStates).filter((v) => v.channelId === dm.id).length : 0));
 
   // Default to the first text channel the user can read.
   useEffect(() => {
@@ -27,7 +30,12 @@ export function MainPane() {
     if (!dm) return <main className="main"><FriendsView /></main>;
     return (
       <main className="main column">
-        {callChannel === dm.id && <CallView channelId={dm.id} compact />}
+        {callChannel === dm.id ? <CallView channelId={dm.id} compact /> : dmCallers > 0 && !ringingHere && (
+          <div className="call-banner">
+            <Phone size={18} /> <span>Chamada em andamento</span>
+            <button className="btn small accept" onClick={() => joinCall(dm.id)}>Entrar</button>
+          </div>
+        )}
         <Chat channel={dm} />
       </main>
     );

@@ -22,6 +22,12 @@ export interface VoiceState {
 /** channelId -> userId -> state. Media itself flows through LiveKit; this is only who is where. */
 const voiceStates = new Map<string, Map<string, VoiceState>>();
 
+/** How long a DM call rings before it counts as unanswered. */
+export const RING_MS = 30_000;
+interface Ring { channelId: string; callerId: string; recipients: string[]; declined: Set<string>; timer: NodeJS.Timeout }
+/** channelId -> ringing DM call. Starts when someone calls an empty DM, ends when anyone answers. */
+const rings = new Map<string, Ring>();
+
 export function initRealtime(httpServer: HttpServer) {
   io = new Server(httpServer, { cors: { origin: config.webOrigin, credentials: true } });
 
@@ -51,6 +57,7 @@ async function onConnection(socket: Socket) {
   socket.emit('ready', {
     voiceStates: [...voiceStates.values()].flatMap((m) => [...m.values()]),
     online: [...connections.keys()],
+    rings: [...rings.values()].filter((r) => r.recipients.includes(userId) && !r.declined.has(userId)).map(ringPayload),
   });
 
   socket.on('typing', async ({ channelId }: { channelId: string }) => {
@@ -162,6 +169,8 @@ export function joinVoice(state: VoiceState) {
   if (!states) voiceStates.set(state.channelId, (states = new Map()));
   states.set(state.userId, state);
   emitVoiceState(state, false);
+  const ring = rings.get(state.channelId);
+  if (ring && state.userId !== ring.callerId) stopRing(ring, 'answered');
 }
 
 export function leaveVoice(userId: string) {
@@ -169,9 +178,46 @@ export function leaveVoice(userId: string) {
     const state = states.get(userId);
     if (!state) continue;
     states.delete(userId);
-    if (states.size === 0) voiceStates.delete(channelId);
+    if (states.size === 0) {
+      voiceStates.delete(channelId);
+      const ring = rings.get(channelId);
+      if (ring) stopRing(ring, 'cancelled');
+    }
     emitVoiceState(state, true);
   }
+}
+
+const ringPayload = (r: Ring) => ({ channelId: r.channelId, callerId: r.callerId });
+
+/**
+ * Rings everyone else in a DM. Only the first person in an empty DM call rings; joining a call
+ * that is already going on is silent.
+ */
+export function startRing(channelId: string, callerId: string, recipients: string[]) {
+  const others = recipients.filter((id) => id !== callerId);
+  if (rings.has(channelId) || !others.length) return false;
+  const ring: Ring = { channelId, callerId, recipients: others, declined: new Set(), timer: setTimeout(() => stopRing(ring, 'timeout'), RING_MS) };
+  rings.set(channelId, ring);
+  for (const id of others) emitToUser(id, 'call:ring', ringPayload(ring));
+  return true;
+}
+
+/** Ends the ringing everywhere: on the callee screens and, unless someone answered, for the caller. */
+function stopRing(ring: Ring, reason: 'answered' | 'cancelled' | 'timeout' | 'declined') {
+  if (rings.get(ring.channelId) !== ring) return;
+  clearTimeout(ring.timer);
+  rings.delete(ring.channelId);
+  for (const id of [ring.callerId, ...ring.recipients]) emitToUser(id, 'call:stop', { channelId: ring.channelId, reason });
+}
+
+/** A callee turns the call down. Their other devices stop ringing; the caller is told. */
+export function declineRing(channelId: string, userId: string) {
+  const ring = rings.get(channelId);
+  if (!ring || !ring.recipients.includes(userId)) return;
+  ring.declined.add(userId);
+  emitToUser(userId, 'call:stop', { channelId, reason: 'declined' });
+  emitToUser(ring.callerId, 'call:declined', { channelId, userId });
+  if (ring.recipients.every((id) => ring.declined.has(id))) stopRing(ring, 'declined');
 }
 
 export function voiceStatesFor(channelId: string) {

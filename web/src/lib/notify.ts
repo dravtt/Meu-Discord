@@ -38,6 +38,18 @@ export function notifyForMessage(m: Message) {
   }
 }
 
+/** System notification for an incoming call while the window is in the background. */
+export function notifyIncomingCall(channelId: string, callerName: string) {
+  if (document.hasFocus() || get().me?.status === 'dnd') return;
+  const title = `${callerName} está te ligando`;
+  const body = 'Abra o Nexo para atender';
+  if (native) return native.notify({ title, body, channelId });
+  if ('Notification' in window && Notification.permission === 'granted') {
+    const n = new Notification(title, { body, tag: `call:${channelId}`, requireInteraction: true });
+    n.onclick = () => { window.focus(); clickHandler?.(channelId); };
+  }
+}
+
 export function updateBadge(count: number) {
   native?.setBadge(count);
   document.title = count > 0 ? `(${count}) Nexo` : 'Nexo';

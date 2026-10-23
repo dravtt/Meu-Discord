@@ -253,6 +253,45 @@ describe('presence and voice', () => {
     await api().post(`/api/channels/${generalId}/voice`).set(auth(bia)).expect(400);
     anaSocket.close();
   });
+
+  it('rings the other person in a DM call until they answer, decline or the caller hangs up', async () => {
+    const dm = (await api().post('/api/dms').set(auth(ana)).send({ userIds: [bia.id] })).body;
+    const [anaSocket, biaSocket] = await Promise.all([connect(ana), connect(bia)]);
+
+    // Bia declines: the caller is told and the ringing stops for everyone.
+    let ring = nextEvent(biaSocket, 'call:ring');
+    let res = await api().post(`/api/channels/${dm.id}/voice`).set(auth(ana)).expect(200);
+    expect(res.body.ringing).toBe(true);
+    expect(await ring).toEqual({ channelId: dm.id, callerId: ana.id });
+    const declined = nextEvent(anaSocket, 'call:declined');
+    const stop = nextEvent(anaSocket, 'call:stop');
+    await api().post(`/api/channels/${dm.id}/call/decline`).set(auth(bia)).expect(204);
+    expect(await declined).toEqual({ channelId: dm.id, userId: bia.id });
+    expect(await stop).toMatchObject({ channelId: dm.id, reason: 'declined' });
+    await api().delete('/api/voice').set(auth(ana)).expect(204);
+
+    // Bia answers by joining; joining a call already going on does not ring again.
+    ring = nextEvent(biaSocket, 'call:ring');
+    await api().post(`/api/channels/${dm.id}/voice`).set(auth(ana)).expect(200);
+    await ring;
+    const answered = nextEvent(anaSocket, 'call:stop');
+    res = await api().post(`/api/channels/${dm.id}/voice`).set(auth(bia)).expect(200);
+    expect(res.body.ringing).toBe(false);
+    expect(await answered).toMatchObject({ reason: 'answered' });
+    await api().delete('/api/voice').set(auth(bia)).expect(204);
+    await api().delete('/api/voice').set(auth(ana)).expect(204);
+
+    // Ana hangs up before Bia answers.
+    ring = nextEvent(biaSocket, 'call:ring');
+    await api().post(`/api/channels/${dm.id}/voice`).set(auth(ana)).expect(200);
+    await ring;
+    const cancelled = nextEvent(biaSocket, 'call:stop');
+    await api().delete('/api/voice').set(auth(ana)).expect(204);
+    expect(await cancelled).toMatchObject({ reason: 'cancelled' });
+
+    anaSocket.close();
+    biaSocket.close();
+  });
 });
 
 describe('category permission sync', () => {

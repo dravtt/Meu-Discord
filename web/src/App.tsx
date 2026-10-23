@@ -8,6 +8,7 @@ import { ServerRail } from './components/ServerRail';
 import { Sidebar } from './components/Sidebar';
 import { MainPane } from './components/MainPane';
 import { ModalHost } from './components/Modal';
+import { IncomingCall } from './components/IncomingCall';
 import { joinInviteFromUrl } from './components/modals/ServerModals';
 
 export function App() {
@@ -48,6 +49,7 @@ export function App() {
       <Sidebar />
       <MainPane />
       <ModalHost />
+      <IncomingCall />
     </div>
   );
 }

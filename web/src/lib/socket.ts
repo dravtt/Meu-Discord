@@ -2,7 +2,18 @@ import { io, type Socket } from 'socket.io-client';
 import { API_BASE, api, getToken } from './api';
 import { addMessage, findChannel, get, patchServer, removeMessage, removeServer, set, updateMessage, upsertMember, upsertRole, upsertServer } from './store';
 import type { Channel, Member, Message, Relationship, Role, Server, VoiceState } from './types';
-import { notifyForMessage } from './notify';
+import { notifyForMessage, notifyIncomingCall } from './notify';
+import { onRingStopped, useCall, useIncomingCall } from './voice';
+
+function recipientName(channelId: string, userId: string) {
+  return findChannel(channelId)?.recipients?.find((u) => u.id === userId)?.displayName;
+}
+
+function ring(r: { channelId: string; callerId: string }) {
+  if (useCall.getState().channelId === r.channelId) return;
+  useIncomingCall.setState(r, true);
+  notifyIncomingCall(r.channelId, recipientName(r.channelId, r.callerId) ?? 'Alguém');
+}
 
 export let socket: Socket | null = null;
 
@@ -13,10 +24,18 @@ export async function refreshServer(serverId: string) {
 export function connectSocket() {
   socket = io(API_BASE || undefined, { auth: { token: getToken() }, transports: ['websocket'] });
 
-  socket.on('ready', (data: { voiceStates: VoiceState[] }) => {
+  socket.on('ready', (data: { voiceStates: VoiceState[]; rings?: { channelId: string; callerId: string }[] }) => {
     const voiceStates: Record<string, VoiceState> = {};
     for (const v of data.voiceStates) voiceStates[v.userId] = v;
     set({ voiceStates });
+    if (data.rings?.[0]) ring(data.rings[0]);
+  });
+  socket.on('call:ring', ring);
+  socket.on('call:stop', ({ channelId, reason }: { channelId: string; reason: string }) => onRingStopped(channelId, reason));
+  socket.on('call:declined', ({ channelId, userId }: { channelId: string; userId: string }) => {
+    const channel = findChannel(channelId);
+    // In a group call one "no" does not end the ringing; the server sends call:stop when everyone said no.
+    if (channel?.type === 'dm') onRingStopped(channelId, 'declined', recipientName(channelId, userId));
   });
   // After a reconnect, reload what we may have missed.
   socket.io.on('reconnect', () => { void bootstrap(); });

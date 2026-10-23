@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Headphones, HeadphoneOff, Maximize2, Mic, MicOff, Minimize2, Monitor, MonitorOff, MonitorUp, PhoneOff, Video, VideoOff, Volume2 } from 'lucide-react';
 import type { Track } from 'livekit-client';
-import { useStore, findChannel } from '../lib/store';
+import { useStore, findChannel, dmName } from '../lib/store';
 import { joinCall, leaveCall, toggleDeafen, toggleMute, toggleScreen, toggleVideo, useCall, type Tile } from '../lib/voice';
 import { has, P } from '../lib/permissions';
 import { Avatar } from './Avatar';
@@ -27,6 +27,7 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
   const call = useCall();
   const channel = useStore(() => findChannel(channelId));
   const voiceStates = useStore((s) => s.voiceStates);
+  const me = useStore((s) => s.me);
   const stageRef = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreenElement();
   const [focusKey, setFocusKey] = useState<string | null>(null);
@@ -65,7 +66,8 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
 
   return (
     <div className={`call ${compact ? 'compact' : ''}`} ref={stageRef}>
-      {call.connecting && <div className="call-status">Conectando…</div>}
+      {call.connecting ? <div className="call-status">Conectando…</div>
+        : call.ringing && <div className="call-status ringing">Chamando {channel?.type === 'dm' ? dmName(channel, me?.id) : 'o grupo'}…</div>}
       {focus ? (
         <div className="call-stage focused">
           <CallTile tile={focus} big onFocus={() => setFocusKey(null)} />

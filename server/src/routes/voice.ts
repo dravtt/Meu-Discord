@@ -4,8 +4,8 @@ import { requireAuth, uid } from '../auth.js';
 import { badRequest } from '../errors.js';
 import { config } from '../config.js';
 import { has, P, requireChannel } from '../permissions.js';
-import { joinVoice, leaveVoice, voiceStatesFor } from '../realtime.js';
-import { one } from '../db.js';
+import { declineRing, joinVoice, leaveVoice, startRing, voiceStatesFor } from '../realtime.js';
+import { one, query } from '../db.js';
 
 export const voiceRouter = Router();
 voiceRouter.use(requireAuth);
@@ -33,8 +33,20 @@ voiceRouter.post('/channels/:channelId/voice', async (req, res) => {
     canPublishData: true,
   });
 
+  const alreadyInCall = voiceStatesFor(channel.id).some((v) => v.userId !== uid(req));
   joinVoice({ userId: uid(req), channelId: channel.id, serverId: channel.server_id, muted: !canSpeak, deafened: false, video: false, streaming: false });
-  res.json({ url: config.livekit.url, token: await token.toJwt(), canSpeak, canVideo: has(perms, P.VIDEO), participants: voiceStatesFor(channel.id) });
+  let ringing = false;
+  if (channel.type !== 'voice' && !alreadyInCall) {
+    const recipients = await query<{ user_id: string }>('SELECT user_id FROM dm_recipients WHERE channel_id = $1', [channel.id]);
+    ringing = startRing(channel.id, uid(req), recipients.map((r) => r.user_id));
+  }
+  res.json({ url: config.livekit.url, token: await token.toJwt(), canSpeak, canVideo: has(perms, P.VIDEO), participants: voiceStatesFor(channel.id), ringing });
+});
+
+voiceRouter.post('/channels/:channelId/call/decline', async (req, res) => {
+  const { channel } = await requireChannel(String(req.params.channelId), uid(req), P.VIEW_CHANNEL);
+  declineRing(channel.id, uid(req));
+  res.status(204).end();
 });
 
 voiceRouter.delete('/voice', (req, res) => {
