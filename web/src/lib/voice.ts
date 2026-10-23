@@ -7,6 +7,7 @@ import { playDeafen, playHangup, playJoin, playLeave, playMute, playStreamStart,
 import { MicGate } from './micGate';
 import { setSpeaking, watchRemoteAudio } from './speaking';
 import { usePrefs } from './prefs';
+import { stopAllSounds } from './soundboard';
 
 /**
  * One box in the call grid per person. When they share their screen, the screen fills their box
@@ -205,6 +206,7 @@ export async function leaveCall(keepError = false) {
   room = null;
   if (useCall.getState().ringing) setRinging(false);
   if (r) playHangup();
+  stopAllSounds();
   for (const el of audioEls.values()) el.remove();
   audioEls.clear();
   for (const stop of audioWatchers.values()) stop();
@@ -239,7 +241,7 @@ let mutedBeforeDeafen = false;
 /** Deafening also mutes your mic; undeafening puts the mic back how it was. */
 export async function toggleDeafen() {
   const deafened = !useCall.getState().deafened;
-  if (deafened) { mutedBeforeDeafen = useCall.getState().muted; playDeafen(); } else playUndeafen();
+  if (deafened) { mutedBeforeDeafen = useCall.getState().muted; playDeafen(); stopAllSounds(); } else playUndeafen();
   useCall.setState({ deafened });
   applyVolumes();
   await setMuted(deafened ? true : mutedBeforeDeafen);

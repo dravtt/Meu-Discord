@@ -220,6 +220,15 @@ export function declineRing(channelId: string, userId: string) {
   if (ring.recipients.every((id) => ring.declined.has(id))) stopRing(ring, 'declined');
 }
 
+/** The call a user is in right now, if any. */
+export function voiceStateOf(userId: string) {
+  for (const states of voiceStates.values()) {
+    const state = states.get(userId);
+    if (state) return state;
+  }
+  return undefined;
+}
+
 export function voiceStatesFor(channelId: string) {
   return [...(voiceStates.get(channelId)?.values() ?? [])];
 }

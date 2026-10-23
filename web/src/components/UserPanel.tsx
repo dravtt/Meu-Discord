@@ -2,9 +2,10 @@ import { useRef, useState } from 'react';
 import { useClickOutside } from './ContextMenu';
 import { useSpeaking } from '../lib/speaking';
 import { openScreenShare } from './ScreenShareModal';
+import { toggleSoundboard, useSoundboardOpen } from './Soundboard';
 import { useStore, set, findChannel } from '../lib/store';
 import { api } from '../lib/api';
-import { Headphones, HeadphoneOff, Mic, MicOff, MonitorOff, MonitorUp, PhoneOff, Settings, Signal, Video, VideoOff } from 'lucide-react';
+import { Headphones, HeadphoneOff, Mic, MicOff, MonitorOff, MonitorUp, Music, PhoneOff, Settings, Signal, Video, VideoOff } from 'lucide-react';
 import { leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall } from '../lib/voice';
 import type { Status } from '../lib/types';
 import { Avatar, STATUS_LABEL } from './Avatar';
@@ -59,6 +60,7 @@ export function VoiceBar() {
   const error = useCall((s) => s.error);
   const video = useCall((s) => s.video);
   const screen = useCall((s) => s.screen);
+  const soundboard = useSoundboardOpen();
   const servers = useStore((s) => s.servers);
   if (!channelId && !error) return null;
   const channel = findChannel(channelId ?? undefined);
@@ -80,6 +82,7 @@ export function VoiceBar() {
         <div className="voice-bar-actions">
           <button className={video ? 'on' : ''} title={video ? 'Desligar câmera' : 'Ligar câmera'} onClick={toggleVideo}>{video ? <Video size={18} /> : <VideoOff size={18} />}</button>
           <button className={screen ? 'on' : ''} title={screen ? 'Parar de transmitir' : 'Compartilhar tela'} onClick={openScreenShare}>{screen ? <MonitorOff size={18} /> : <MonitorUp size={18} />}</button>
+          <button className={soundboard ? 'on' : ''} title="Efeitos sonoros" onClick={toggleSoundboard}><Music size={18} /></button>
         </div>
       )}
     </div>

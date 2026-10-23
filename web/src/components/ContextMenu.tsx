@@ -166,6 +166,7 @@ export function UserMenu({ userId, serverId }: { userId: string; serverId?: stri
   const callChannel = useCall((s) => s.channelId);
   const theirVoice = useStore((s) => s.voiceStates[userId]);
   const muted = usePrefs((p) => !!p.userMuted[userId]);
+  const soundMuted = usePrefs((p) => !!p.userSoundMuted[userId]);
   const isMe = userId === me.id;
   const inCallWithThem = !isMe && !!callChannel && theirVoice?.channelId === callChannel;
   const name = findName(userId);
@@ -182,6 +183,7 @@ export function UserMenu({ userId, serverId }: { userId: string; serverId?: stri
         <MenuSep />
         <VolumeSlider userId={userId} />
         <MenuToggle label="Silenciar" checked={muted} onChange={(v) => savePrefs((p) => ({ userMuted: { ...p.userMuted, [userId]: v } }))} />
+        <MenuToggle label="Silenciar efeitos sonoros" checked={soundMuted} onChange={(v) => savePrefs((p) => ({ userSoundMuted: { ...p.userSoundMuted, [userId]: v } }))} />
       </>}
       {!isMe && <>
         <MenuSep />

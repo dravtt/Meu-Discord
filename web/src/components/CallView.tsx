@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Headphones, HeadphoneOff, Maximize2, Mic, MicOff, Minimize2, Monitor, MonitorOff, MonitorUp, PhoneOff, Video, VideoOff, Volume2 } from 'lucide-react';
+import { Headphones, HeadphoneOff, Maximize2, Mic, Music, MicOff, Minimize2, Monitor, MonitorOff, MonitorUp, PhoneOff, Video, VideoOff, Volume2 } from 'lucide-react';
 import type { Track } from 'livekit-client';
 import { useStore, findChannel, dmName } from '../lib/store';
 import { joinCall, leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall, type Tile } from '../lib/voice';
 import { has, P } from '../lib/permissions';
 import { useSpeaking } from '../lib/speaking';
 import { openScreenShare } from './ScreenShareModal';
+import { toggleSoundboard, useSoundboardOpen } from './Soundboard';
+import { useSoundBubbles } from '../lib/soundboard';
 import { userMenuProps } from './ContextMenu';
 import { Avatar } from './Avatar';
 
@@ -33,6 +35,7 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
   const me = useStore((s) => s.me);
   const stageRef = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreenElement();
+  const soundboard = useSoundboardOpen();
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const inThisCall = call.channelId === channelId;
   const others = Object.values(voiceStates).filter((v) => v.channelId === channelId);
@@ -98,6 +101,7 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
             {call.screen ? <MonitorOff size={22} /> : <MonitorUp size={22} />}
           </button>
         )}
+        <button className={`round ${soundboard ? 'on' : ''}`} title="Efeitos sonoros" onClick={toggleSoundboard}><Music size={22} /></button>
         <button className="round" title={isFull ? 'Sair da tela cheia' : 'Tela cheia'} onClick={() => toggleFullscreen(stageRef.current)}>
           {isFull ? <Minimize2 size={22} /> : <Maximize2 size={22} />}
         </button>
@@ -110,6 +114,7 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
 function CallTile({ tile, big, onFocus }: { tile: Tile; big?: boolean; onFocus: () => void }) {
   const voice = useStore((s) => s.voiceStates[tile.identity]);
   const speaking = useSpeaking((s) => !!s[tile.identity]);
+  const bubble = useSoundBubbles((s) => s[tile.identity]);
   const channelServer = useStore((s) => (s.voiceStates[tile.identity]?.serverId ?? null));
   const ref = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreenElement();
@@ -138,6 +143,7 @@ function CallTile({ tile, big, onFocus }: { tile: Tile; big?: boolean; onFocus: 
         {voice?.deafened ? <HeadphoneOff size={14} className="tile-flag" /> : voice?.muted ? <MicOff size={14} className="tile-flag" /> : null}
       </span>
       {isScreen && <span className="live tile-live">AO VIVO</span>}
+      {bubble && <span key={bubble.at} className="sound-bubble" title={bubble.name}>{bubble.emoji}</span>}
       <button className="tile-full" title={isFull ? 'Sair da tela cheia' : 'Tela cheia'} onClick={(e) => { e.stopPropagation(); toggleFullscreen(ref.current); }}>
         {isFull ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
       </button>

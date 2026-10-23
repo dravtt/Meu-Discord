@@ -351,6 +351,37 @@ describe('DM close, notes and server order', () => {
   });
 });
 
+describe('soundboard', () => {
+  it('uploads a sound, plays it for the call and lets the uploader delete it', async () => {
+    const wav = Buffer.from('524946462400000057415645666d7420100000000100010044ac000088580100020010006461746100000000', 'hex');
+    await api().post(`/api/servers/${serverId}/sounds`).set(auth(bia)).field('name', 'oi').attach('file', Buffer.from('nope'), { filename: 'x.txt', contentType: 'text/plain' }).expect(400);
+    const up = await api().post(`/api/servers/${serverId}/sounds`).set(auth(bia)).field('name', 'Risada').field('emoji', '😂')
+      .attach('file', wav, { filename: 'r.wav', contentType: 'audio/wav' }).expect(201);
+    expect(up.body).toMatchObject({ name: 'Risada', emoji: '😂', serverId });
+    const list = (await api().get(`/api/servers/${serverId}/sounds`).set(auth(ana)).expect(200)).body;
+    expect(list.sounds.map((s: any) => s.id)).toContain(up.body.id);
+
+    await api().post('/api/voice/soundboard').set(auth(bia)).send({ builtin: 'buzina' }).expect(400);
+    await api().post(`/api/channels/${voiceId}/voice`).set(auth(bia)).expect(200);
+    const anaSocket = await connect(ana);
+    const played = nextEvent(anaSocket, 'soundboard:play');
+    await api().post('/api/voice/soundboard').set(auth(bia)).send({ soundId: up.body.id }).expect(204);
+    expect(await played).toMatchObject({ channelId: voiceId, userId: bia.id, soundId: up.body.id, url: up.body.url });
+    await api().post('/api/voice/soundboard').set(auth(bia)).send({ builtin: 'tambor' }).expect(400);
+    await new Promise((r) => setTimeout(r, 1300));
+    await api().post('/api/voice/soundboard').set(auth(bia)).send({ builtin: 'nao-existe' }).expect(400);
+    await api().post('/api/voice/soundboard').set(auth(bia)).send({ builtin: 'tambor' }).expect(204);
+    await api().delete('/api/voice').set(auth(bia)).expect(204);
+    anaSocket.close();
+
+    const gil = await register('gil');
+    const inv = await api().post(`/api/servers/${serverId}/invites`).set(auth(ana)).send({}).expect(201);
+    await api().post(`/api/invites/${inv.body.code}`).set(auth(gil)).expect(200);
+    await api().delete(`/api/servers/${serverId}/sounds/${up.body.id}`).set(auth(gil)).expect(403);
+    await api().delete(`/api/servers/${serverId}/sounds/${up.body.id}`).set(auth(bia)).expect(204);
+  });
+});
+
 describe('category permission sync', () => {
   it('channels without overwrites follow a private category', async () => {
     const srv = await api().post('/api/servers').set(auth(ana)).send({ name: 'Sync' }).expect(201);

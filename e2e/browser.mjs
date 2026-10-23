@@ -222,6 +222,14 @@ await step('Ambas entram no canal de voz com câmera', async () => {
   await ana.locator('.ctx-menu').getByText('Volume do usuário').waitFor();
   await ana.screenshot({ path: `${SHOTS}/12-volume.png` });
   await ana.keyboard.press('Escape');
+  // Soundboard: Ana plays a built-in sound and Bia sees the emoji pop on Ana's tile.
+  await ana.locator('.call-controls').getByTitle('Efeitos sonoros').click();
+  await ana.locator('.soundboard').getByText('ba dum tss').waitFor();
+  await ana.screenshot({ path: `${SHOTS}/15-soundboard.png` });
+  await ana.locator('.soundboard').getByTitle('Tocar "ba dum tss" para todos na chamada').click();
+  await bia.locator('.call-tile .sound-bubble', { hasText: '🥁' }).waitFor({ timeout: 5000 });
+  await ana.locator('.chat-header, .call').first().click({ position: { x: 5, y: 5 } }).catch(() => {});
+  await ana.locator('.soundboard').waitFor({ state: 'detached' });
   // A screen share covers the sharer's own tile (camera in the corner) and takes the spotlight.
   await ana.locator('.call-controls').getByTitle('Compartilhar tela').click();
   await ana.getByRole('button', { name: '60 FPS' }).click();

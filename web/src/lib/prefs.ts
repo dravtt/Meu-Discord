@@ -19,10 +19,14 @@ export interface Prefs {
   screenQuality: '720' | '1080' | 'source';
   screenFps: 15 | 30 | 60;
   screenAudio: boolean;
+  /** Soundboard volume on this device, 0–100. */
+  soundboardVolume: number;
+  /** People whose soundboard sounds you do not want to hear. */
+  userSoundMuted: Record<string, boolean>;
 }
 
 const KEY = 'nexo:prefs';
-const DEFAULTS: Prefs = { theme: 'dark', desktopNotifications: true, messageSounds: true, callSounds: true, serverNotify: {}, userVolume: {}, userMuted: {}, screenQuality: '1080', screenFps: 30, screenAudio: true };
+const DEFAULTS: Prefs = { theme: 'dark', desktopNotifications: true, messageSounds: true, callSounds: true, serverNotify: {}, userVolume: {}, userMuted: {}, screenQuality: '1080', screenFps: 30, screenAudio: true, soundboardVolume: 70, userSoundMuted: {} };
 
 function load(): Prefs {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return DEFAULTS; }

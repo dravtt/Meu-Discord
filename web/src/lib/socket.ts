@@ -4,6 +4,7 @@ import { addMessage, findChannel, get, patchServer, removeMessage, removeServer,
 import type { Channel, Member, Message, Relationship, Role, Server, VoiceState } from './types';
 import { notifyForMessage, notifyIncomingCall } from './notify';
 import { onRingStopped, useCall, useIncomingCall } from './voice';
+import { loadServerSounds, onSoundPlayed, useServerSounds } from './soundboard';
 
 function recipientName(channelId: string, userId: string) {
   return findChannel(channelId)?.recipients?.find((u) => u.id === userId)?.displayName;
@@ -31,6 +32,8 @@ export function connectSocket() {
     if (data.rings?.[0]) ring(data.rings[0]);
   });
   socket.on('call:ring', ring);
+  socket.on('soundboard:play', onSoundPlayed);
+  socket.on('soundboard:update', ({ serverId }: { serverId: string }) => { if (useServerSounds.getState()[serverId]) void loadServerSounds(serverId); });
   socket.on('call:stop', ({ channelId, reason }: { channelId: string; reason: string }) => onRingStopped(channelId, reason));
   socket.on('call:declined', ({ channelId, userId }: { channelId: string; userId: string }) => {
     const channel = findChannel(channelId);

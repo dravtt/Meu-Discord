@@ -10,6 +10,7 @@ import { MainPane } from './components/MainPane';
 import { ModalHost } from './components/Modal';
 import { IncomingCall } from './components/IncomingCall';
 import { ContextMenuHost } from './components/ContextMenu';
+import { SoundboardHost } from './components/Soundboard';
 import { installPushToTalk } from './lib/micGate';
 import { joinInviteFromUrl } from './components/modals/ServerModals';
 
@@ -54,6 +55,7 @@ export function App() {
       <ModalHost />
       <IncomingCall />
       <ContextMenuHost />
+      <SoundboardHost />
     </div>
   );
 }

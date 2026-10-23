@@ -183,7 +183,7 @@ svg { flex-shrink: 0; }
 .voice-bar .warn { color: var(--warn); }
 .voice-bar .error { color: var(--danger); }
 .voice-bar small { color: var(--text-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.voice-bar-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.voice-bar-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .voice-bar-actions button { height: 32px; border-radius: 6px; background: var(--bg-3); display: grid; place-items: center; color: var(--text); }
 .voice-bar-actions button:hover { background: var(--bg-4); }
 .voice-bar-actions button.on { background: var(--accent); color: var(--on-accent); }
@@ -576,3 +576,35 @@ svg { flex-shrink: 0; }
 .group-member .grow { flex: 1; }
 .leave-group { display: inline-flex; align-items: center; gap: 6px; }
 .channel-start .group-icon { margin-bottom: 8px; }
+/* ---------- soundboard ---------- */
+.soundboard { position: fixed; z-index: 150; max-height: min(460px, 70vh); display: flex; flex-direction: column; background: var(--bg-0); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.5); overflow: hidden; }
+.soundboard-top { display: flex; gap: 10px; align-items: center; padding: 10px; border-bottom: 1px solid var(--border); }
+.soundboard-search { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--bg-1); border-radius: 6px; padding: 0 10px; color: var(--text-3); }
+.soundboard-search input { background: none; border: none; padding: 8px 0; }
+.soundboard-volume { display: flex; align-items: center; gap: 6px; color: var(--text-2); }
+.soundboard-volume input { width: 90px; padding: 0; border: none; background: none; accent-color: var(--accent); }
+.soundboard-error { margin: 8px 12px 0; }
+.soundboard-body { overflow-y: auto; padding: 4px 12px 12px; }
+.soundboard h4 { margin: 12px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .02em; color: var(--text-2); }
+.sound-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.sound-tile { position: relative; display: flex; align-items: center; background: var(--bg-2); border-radius: 8px; min-height: 40px; }
+.sound-tile:hover { background: var(--bg-3); }
+.sound-play { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; text-align: left; border-radius: 8px; }
+.sound-play:active { transform: scale(.97); }
+.sound-emoji { font-size: 18px; line-height: 1; }
+.sound-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sound-tools { display: flex; gap: 2px; padding-right: 6px; opacity: 0; }
+.sound-tile:hover .sound-tools, .sound-tile:focus-within .sound-tools { opacity: 1; }
+.sound-tools button { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); }
+.sound-tools button:hover { background: var(--bg-4); color: var(--text); }
+.sound-tools button.danger:hover { background: var(--danger); color: white; }
+.sound-tile.add { justify-content: center; gap: 6px; padding: 8px 10px; font-size: 13px; font-weight: 600; color: var(--text-2); border: 1px dashed var(--bg-4); background: transparent; }
+.sound-tile.add:hover { color: var(--text); border-color: var(--accent); }
+.sound-bubble { position: absolute; top: 12px; right: 52px; font-size: 34px; animation: sound-pop 2.4s ease-out forwards; pointer-events: none; filter: drop-shadow(0 2px 6px rgba(0,0,0,.5)); }
+@keyframes sound-pop { 0% { transform: scale(.3) translateY(10px); opacity: 0; } 12% { transform: scale(1.15); opacity: 1; } 25% { transform: scale(1); } 80% { opacity: 1; } 100% { transform: translateY(-24px); opacity: 0; } }
+.emoji-pick { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; align-items: center; }
+.emoji-pick button { width: 34px; height: 34px; border-radius: 6px; font-size: 18px; }
+.emoji-pick button:hover { background: var(--bg-3); }
+.emoji-pick button.active { background: var(--accent-soft); outline: 2px solid var(--accent); }
+.emoji-pick input { width: 80px; }
+.plain-range { flex: 1; padding: 0; border: none; background: none; accent-color: var(--accent); }

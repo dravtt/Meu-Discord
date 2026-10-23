@@ -13,6 +13,7 @@ import { dmsRouter } from './routes/dms.js';
 import { invitesRouter } from './routes/invites.js';
 import { voiceRouter } from './routes/voice.js';
 import { uploadsRouter } from './routes/uploads.js';
+import { soundboardRouter } from './routes/soundboard.js';
 
 export function createApp() {
   const app = express();
@@ -24,7 +25,7 @@ export function createApp() {
     setHeaders: (res) => { res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"); res.setHeader('X-Content-Type-Options', 'nosniff'); },
   }));
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
-  for (const router of [authRouter, relationshipsRouter, serversRouter, channelsRouter, messagesRouter, dmsRouter, invitesRouter, voiceRouter, uploadsRouter]) {
+  for (const router of [authRouter, relationshipsRouter, serversRouter, channelsRouter, messagesRouter, dmsRouter, invitesRouter, voiceRouter, uploadsRouter, soundboardRouter]) {
     app.use('/api', router);
   }
   // In production the API also serves the web build, so web and desktop share one origin.
