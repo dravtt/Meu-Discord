@@ -27,7 +27,8 @@ export const BUILTIN_SOUNDS: { id: string; name: string; emoji: string }[] = [
 
 let ctx: AudioContext | null = null;
 const buffers = new Map<string, Promise<AudioBuffer>>();
-let playing: { stop: () => void }[] = [];
+/** What is playing, per person who played it (or 'preview'); a new sound from the same person replaces the old one. */
+const playing = new Map<string, { stop: () => void }>();
 
 function output(volume: number) {
   ctx ??= new AudioContext();
@@ -53,12 +54,16 @@ export function preloadBuiltins() {
   for (const b of BUILTIN_SOUNDS) void loadBuffer(`/sounds/${b.id}.mp3`).catch(() => {});
 }
 
-/** Plays a sound on this device only (used for previews and for sounds others trigger). */
-export async function playLocal(s: { builtin?: string; url?: string; volume?: number }) {
+/**
+ * Plays a sound on this device only (previews and sounds people in the call trigger). `slot` is
+ * who played it: their previous sound stops and the new one starts from the beginning.
+ */
+export async function playLocal(s: { builtin?: string; url?: string; volume?: number }, slot = 'preview') {
   const url = s.builtin ? (BUILTIN_SOUNDS.some((b) => b.id === s.builtin) ? `/sounds/${s.builtin}.mp3` : null) : s.url;
   if (!url) return;
   const buf = await loadBuffer(url).catch(() => null);
   if (!buf) return;
+  playing.get(slot)?.stop();
   const out = output(s.volume ?? 1);
   const src = ctx!.createBufferSource();
   src.buffer = buf;
@@ -66,14 +71,14 @@ export async function playLocal(s: { builtin?: string; url?: string; volume?: nu
   // Long uploads are cut so nobody can hold the call hostage.
   src.start(0, 0, Math.min(buf.duration, 6));
   const entry = { stop: () => { try { src.stop(); } catch { /* already done */ } } };
-  playing.push(entry);
-  src.onended = () => { out.disconnect(); playing = playing.filter((p) => p !== entry); };
+  playing.set(slot, entry);
+  src.onended = () => { out.disconnect(); if (playing.get(slot) === entry) playing.delete(slot); };
 }
 
 /** Stops every sound playing right now (e.g. when you deafen or leave). */
 export function stopAllSounds() {
-  for (const p of playing) p.stop();
-  playing = [];
+  for (const p of playing.values()) p.stop();
+  playing.clear();
 }
 
 /** Asks the server to play a sound for everyone in your call. */
@@ -93,7 +98,7 @@ export function onSoundPlayed(p: SoundPlay) {
   useSoundBubbles.setState({ [p.userId]: { emoji: meta?.emoji || '🔊', name: meta?.name ?? '', at } });
   setTimeout(() => { if (useSoundBubbles.getState()[p.userId]?.at === at) useSoundBubbles.setState({ [p.userId]: undefined as never }); }, 2500);
   if (call.deafened || usePrefs.getState().userSoundMuted[p.userId]) return;
-  void playLocal(p);
+  void playLocal(p, p.userId);
 }
 
 /* ---------- server sound lists ---------- */
