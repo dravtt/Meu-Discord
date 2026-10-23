@@ -18,7 +18,8 @@ export interface User {
   widgets?: Widget[];
 }
 
-export interface Game { name: string; cover: string | null }
+/** `cover` is an uploaded image; otherwise Steam's art for `steamId` is shown. */
+export interface Game { name: string; cover: string | null; steamId?: number }
 export type Widget =
   | { type: 'favorite'; game: Game | null; note: string }
   | { type: 'games'; games: Game[] }

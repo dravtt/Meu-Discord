@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { ArrowDown, ArrowUp, ImagePlus, Plus, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowDown, ArrowUp, ImagePlus, Plus, Search, Trash2, X } from 'lucide-react';
+import { api } from '../../lib/api';
 import { uploadImage } from '../../lib/upload';
 import type { Game, Widget } from '../../lib/types';
 import { GameCover, WIDGET_INFO } from '../Mural';
@@ -62,46 +63,84 @@ function CoverButton({ onUploaded, onError, label = 'Capa' }: { onUploaded: (url
   );
 }
 
+/** Type a name, pick the game from Steam's catalog (cover included) or add it by name only. */
+function GameSearch({ onPick, disabled, placeholder = 'Buscar jogo (ex.: Rocket League)' }: { onPick: (g: Game) => void; disabled?: boolean; placeholder?: string }) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<{ steamId: number; name: string }[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) { setResults(null); return; }
+    setLoading(true);
+    let live = true;
+    const t = setTimeout(() => {
+      api<{ games: { steamId: number; name: string }[] }>(`/games/search?q=${encodeURIComponent(term)}`)
+        .then((r) => { if (live) setResults(r.games); })
+        .catch(() => { if (live) setResults([]); })
+        .finally(() => { if (live) setLoading(false); });
+    }, 300);
+    return () => { live = false; clearTimeout(t); };
+  }, [q]);
+  const pick = (g: Game) => { onPick(g); setQ(''); setResults(null); };
+  const term = q.trim();
+  return (
+    <div className="game-search">
+      <div className="game-search-box">
+        <Search size={15} />
+        <input value={q} maxLength={60} placeholder={placeholder} disabled={disabled} aria-label="Buscar jogo"
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Escape') { setQ(''); e.stopPropagation(); } if (e.key === 'Enter' && results?.[0]) pick({ name: results[0].name, cover: null, steamId: results[0].steamId }); }} />
+      </div>
+      {term.length >= 2 && (
+        <div className="game-results" role="listbox">
+          {loading && !results && <p className="muted small">Buscando…</p>}
+          {results?.map((g) => (
+            <button key={g.steamId} role="option" onClick={() => pick({ name: g.name, cover: null, steamId: g.steamId })}>
+              <GameCover game={{ name: g.name, cover: null, steamId: g.steamId }} size="sm" /> <span>{g.name}</span>
+            </button>
+          ))}
+          {results && results.length === 0 && !loading && <p className="muted small">Não achei na Steam. Você pode adicionar só pelo nome e enviar uma capa.</p>}
+          <button className="add-plain" onClick={() => pick({ name: term, cover: null })}><Plus size={14} /> Adicionar "{term}" sem capa da Steam</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FavoriteEditor({ w, onChange, onError }: { w: Extract<Widget, { type: 'favorite' }>; onChange: (w: Widget) => void; onError: (msg: string) => void }) {
-  const game: Game = w.game ?? { name: '', cover: null };
-  const setGame = (g: Game) => onChange({ ...w, game: g.name.trim() || g.cover ? g : null });
+  const game = w.game;
   return (
     <div className="we-favorite">
-      {game.name && <GameCover game={game} />}
+      {game && <GameCover game={game} />}
       <div className="we-fields">
-        <label>Nome do jogo<input value={game.name} maxLength={60} placeholder="ex.: Rocket League" onChange={(e) => setGame({ ...game, name: e.target.value })} /></label>
+        {game
+          ? <div className="we-picked"><strong>{game.name}</strong><button className="btn small ghost" onClick={() => onChange({ ...w, game: null })}>Trocar jogo</button></div>
+          : <GameSearch onPick={(g) => onChange({ ...w, game: g })} />}
         <label>Comentário<input value={w.note} maxLength={140} placeholder="ex.: sou Lenda Supersônica" onChange={(e) => onChange({ ...w, note: e.target.value })} /></label>
-        <div className="pe-row">
-          <CoverButton label={game.cover ? 'Trocar capa' : 'Enviar capa'} onUploaded={(cover) => setGame({ ...game, cover })} onError={onError} />
-          {game.cover && <button className="btn small ghost" onClick={() => setGame({ ...game, cover: null })}>Remover capa</button>}
-        </div>
+        {game && <div className="pe-row">
+          <CoverButton label={game.cover ? 'Trocar capa' : 'Usar minha capa'} onUploaded={(cover) => onChange({ ...w, game: { ...game, cover } })} onError={onError} />
+          {game.cover && <button className="btn small ghost" onClick={() => onChange({ ...w, game: { ...game, cover: null } })}>Remover minha capa</button>}
+        </div>}
       </div>
     </div>
   );
 }
 
 function GamesEditor({ w, onChange, onError }: { w: Extract<Widget, { type: 'games' }>; onChange: (w: Widget) => void; onError: (msg: string) => void }) {
-  const [name, setName] = useState('');
   const setGames = (games: Game[]) => onChange({ ...w, games });
-  function add() {
-    if (!name.trim() || w.games.length >= 20) return;
-    setGames([...w.games, { name: name.trim(), cover: null }]);
-    setName('');
-  }
+  const full = w.games.length >= 20;
   return (
     <div>
       {w.games.map((g, i) => (
         <div key={i} className="we-game">
           <GameCover game={g} size="sm" />
           <span className="we-game-name">{g.name}</span>
-          <CoverButton label={g.cover ? 'Trocar capa' : 'Capa'} onUploaded={(cover) => setGames(w.games.map((x, j) => (j === i ? { ...x, cover } : x)))} onError={onError} />
+          <CoverButton label={g.cover ? 'Trocar capa' : 'Minha capa'} onUploaded={(cover) => setGames(w.games.map((x, j) => (j === i ? { ...x, cover } : x)))} onError={onError} />
           <button className="icon-btn" title="Remover jogo" aria-label={`Remover ${g.name}`} onClick={() => setGames(w.games.filter((_, j) => j !== i))}><X size={16} /></button>
         </div>
       ))}
-      <div className="pe-row" style={{ marginTop: 8 }}>
-        <input className="we-add-input" value={name} maxLength={60} placeholder={w.games.length >= 20 ? 'Limite de 20 jogos' : 'Nome do jogo'} disabled={w.games.length >= 20}
-          aria-label="Nome do jogo para adicionar" onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} />
-        <button className="btn small" disabled={!name.trim() || w.games.length >= 20} onClick={add}><Plus size={14} /> Adicionar</button>
+      <div style={{ margin: '8px 0 12px' }}>
+        <GameSearch disabled={full} placeholder={full ? 'Limite de 20 jogos' : 'Adicionar jogo (ex.: Minecraft)'} onPick={(g) => setGames([...w.games, g])} />
       </div>
     </div>
   );

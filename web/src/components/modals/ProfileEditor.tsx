@@ -43,8 +43,7 @@ export function ProfileEditor() {
     try {
       // Only what changed, so an old value never blocks saving the rest.
       const before = draftOf(me) as unknown as Record<string, unknown>;
-      // A favorite game with no name yet is the same as none.
-      const widgets = draft.widgets.map((w) => (w.type === 'favorite' && !w.game?.name.trim() ? { ...w, game: null } : w));
+      const widgets = draft.widgets;
       const body = Object.fromEntries(Object.entries({ ...draft, widgets, displayName: draft.displayName.trim() || me.displayName })
         .filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(before[k])));
       const updated = await api<User>('/users/@me', { method: 'PATCH', body });

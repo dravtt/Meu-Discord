@@ -422,3 +422,21 @@ describe('category permission sync', () => {
     await api().post('/api/uploads/image').set(auth(ana)).attach('file', Buffer.from('x'), { filename: 'a.txt', contentType: 'text/plain' }).expect(400);
   });
 });
+
+describe('game search', () => {
+  it('returns Steam apps and survives Steam being down', async () => {
+    const real = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({ items: [
+      { type: 'app', id: 252950, name: 'Rocket League®' }, { type: 'sub', id: 1, name: 'Pacote' },
+    ] }))) as typeof fetch;
+    try {
+      const res = await api().get('/api/games/search?q=rocket').set(auth(ana)).expect(200);
+      expect(res.body.games).toEqual([{ steamId: 252950, name: 'Rocket League' }]);
+      globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch;
+      expect((await api().get('/api/games/search?q=minecraft').set(auth(ana)).expect(200)).body).toMatchObject({ games: [], unavailable: true });
+      await api().get('/api/games/search?q=a').set(auth(ana)).expect(400);
+    } finally { globalThis.fetch = real; }
+    const w = [{ type: 'games', games: [{ name: 'Rocket League', cover: null, steamId: 252950 }] }];
+    expect((await api().patch('/api/users/@me').set(auth(ana)).send({ widgets: w }).expect(200)).body.widgets).toEqual(w);
+  });
+});

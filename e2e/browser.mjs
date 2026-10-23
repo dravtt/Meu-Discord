@@ -286,13 +286,16 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
   await ana.locator('.preview').screenshot({ path: `${SHOTS}/15a-preview-white-black.png` });
   await ana.getByLabel('Primária: #ec4899').click();
   await ana.getByLabel('Secundária: #6366f1').click();
+  // Game search goes through the API to Steam's store search; picking a result brings its cover.
   await ana.getByRole('button', { name: 'Jogo favorito' }).click();
-  await ana.getByLabel('Nome do jogo', { exact: true }).fill('Rocket League');
+  await ana.getByLabel('Buscar jogo').fill('rocket');
+  await ana.locator('.game-results [role=option]').first().click();
+  await ana.locator('.we-picked', { hasText: /rocket/i }).waitFor();
   await ana.getByLabel('Comentário').fill('sou Lenda Supersônica');
   await ana.getByRole('button', { name: 'Jogos que eu gosto' }).click();
   for (const g of ['Minecraft', 'Valorant', 'osu!']) {
-    await ana.getByLabel('Nome do jogo para adicionar').fill(g);
-    await ana.keyboard.press('Enter');
+    await ana.getByLabel('Buscar jogo').fill(g);
+    await ana.getByRole('button', { name: `Adicionar "${g}" sem capa da Steam` }).click();
   }
   await ana.locator('.preview .widget-games figure').nth(2).waitFor();
   await ana.screenshot({ path: `${SHOTS}/15-profile-editor.png` });
@@ -303,7 +306,7 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
   await bia.locator('.member .styled-name.font-pixel.effect-gradient', { hasText: 'Ana' }).waitFor();
   await bia.locator('.message .author .styled-name.font-pixel', { hasText: 'Ana' }).first().click();
   await bia.locator('.profile-full .profile-card.themed', { hasText: 'ela/dela' }).waitFor();
-  await bia.locator('.profile-full .widget-favorite', { hasText: 'Rocket League' }).waitFor();
+  await bia.locator('.profile-full .widget-favorite', { hasText: /rocket/i }).waitFor();
   await new Promise((r) => setTimeout(r, 400));
   await bia.screenshot({ path: `${SHOTS}/16-profile-card.png` });
   await bia.getByRole('button', { name: /Servidores em comum/ }).click();

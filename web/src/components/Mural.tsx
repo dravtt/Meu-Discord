@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { assetUrl } from '../lib/api';
 import type { Game, Widget } from '../lib/types';
 import { colorFor } from './Avatar';
@@ -8,12 +9,24 @@ export const WIDGET_INFO: Record<Widget['type'], { title: string; hint: string }
   text: { title: 'Texto livre', hint: 'Um recado, links, o que quiser' },
 };
 
-/** A game's cover: the uploaded image, or a colored tile with its name. */
+const STEAM_ART = (id: number) => [
+  `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${id}/library_600x900.jpg`,
+  `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/library_600x900.jpg`,
+  `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${id}/header.jpg`,
+  `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/header.jpg`,
+];
+
+/** A game's cover: the uploaded image, Steam's art (trying each size in turn), or a colored tile with its name. */
 export function GameCover({ game, size = 'md' }: { game: Game; size?: 'sm' | 'md' | 'lg' }) {
+  const sources = game.cover ? [assetUrl(game.cover)] : game.steamId ? STEAM_ART(game.steamId) : [];
+  const key = sources.join();
+  const [failed, setFailed] = useState({ key, count: 0 });
+  const tries = failed.key === key ? failed.count : 0;
+  const src = sources[tries];
   return (
     <span className={`game-cover ${size}`} title={game.name}>
-      {game.cover
-        ? <img src={assetUrl(game.cover)} alt="" />
+      {src
+        ? <img key={src} src={src} alt="" loading="lazy" onError={() => setFailed({ key, count: tries + 1 })} />
         : <span className="game-cover-fallback" style={{ background: `linear-gradient(160deg, ${colorFor(game.name)}, #111)` }}>{game.name}</span>}
     </span>
   );

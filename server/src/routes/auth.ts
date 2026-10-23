@@ -60,7 +60,8 @@ const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const NAME_FONTS = ['default', 'rounded', 'serif', 'mono', 'pixel', 'script', 'display', 'future'] as const;
 const NAME_EFFECTS = ['solid', 'gradient', 'neon', 'outline'] as const;
 
-const game = z.object({ name: z.string().trim().min(1).max(60), cover: uploadUrl.nullable() });
+/** A game on the mural: its cover is an upload, or Steam's art for `steamId`. */
+const game = z.object({ name: z.string().trim().min(1).max(60), cover: uploadUrl.nullable(), steamId: z.number().int().positive().max(1e8).optional() });
 /** Profile mural widgets, shown in the order given. */
 const widgets = z.array(z.discriminatedUnion('type', [
   z.object({ type: z.literal('favorite'), game: game.nullable(), note: z.string().max(140) }),

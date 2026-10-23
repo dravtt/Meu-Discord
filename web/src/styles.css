@@ -750,3 +750,14 @@ svg { flex-shrink: 0; }
 .we-add-input { flex: 1; min-width: 140px; width: auto; }
 .widget-editor .pe-row:last-child { padding-bottom: 2px; }
 .we-card > div:last-child .pe-row { margin-bottom: 10px; }
+.game-search { position: relative; margin-bottom: 12px; }
+.game-search-box { display: flex; align-items: center; gap: 8px; background: var(--bg-0); border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; color: var(--text-3); }
+.game-search-box:focus-within { border-color: var(--accent); }
+.game-search-box input { border: 0; background: transparent; padding: 9px 0; }
+.game-results { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; background: var(--bg-0); border: 1px solid var(--border); border-radius: 10px; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.45); max-height: 340px; overflow-y: auto; }
+.game-results button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px; border-radius: 6px; text-align: left; font-size: 14px; }
+.game-results button:hover { background: var(--bg-3); }
+.game-results .add-plain { color: var(--text-2); font-size: 13px; }
+.game-results p { margin: 6px; }
+.we-picked { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: 16px; }
+.we-picked button { white-space: nowrap; flex-shrink: 0; }
