@@ -41,6 +41,11 @@ describe('auth', () => {
     await api().patch('/api/users/@me').set(auth(ana)).send({ nameStyle: { font: 'comic', effect: 'solid', colors: [] } }).expect(400);
     await api().patch('/api/users/@me').set(auth(ana)).send({ bannerUrl: 'https://evil.example/x.png' }).expect(400);
     await api().patch('/api/users/@me').set(auth(ana)).send({ nameStyle: { font: 'default', effect: 'solid', colors: [] }, profileColors: [] }).expect(200);
+    const w = [{ type: 'favorite', game: { name: 'Rocket League', cover: null }, note: 'sou Lenda' }, { type: 'games', games: [{ name: 'Minecraft', cover: '/uploads/m.png' }] }];
+    expect((await api().patch('/api/users/@me').set(auth(ana)).send({ widgets: w }).expect(200)).body.widgets).toEqual(w);
+    expect((await api().get(`/api/users/${ana.id}`).set(auth(ana)).expect(200)).body.widgets).toEqual(w);
+    await api().patch('/api/users/@me').set(auth(ana)).send({ widgets: [{ type: 'games', games: [{ name: 'x', cover: 'javascript:1' }] }] }).expect(400);
+    await api().patch('/api/users/@me').set(auth(ana)).send({ widgets: [{ type: 'hack' }] }).expect(400);
   });
 });
 

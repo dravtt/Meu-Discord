@@ -195,9 +195,9 @@ await step('Menu do botão direito, nota e menus que fecham ao clicar fora', asy
   await ana.locator('.chat-header h3').click();
   await menu.waitFor({ state: 'detached' });
   await ana.locator('.user-panel .me').click();
-  await ana.locator('.status-menu').waitFor();
+  await ana.locator('.me-popout').waitFor();
   await ana.locator('.chat-header h3').click();
-  await ana.locator('.status-menu').waitFor({ state: 'detached' });
+  await ana.locator('.me-popout').waitFor({ state: 'detached' });
   await ana.locator('.sidebar-header').click();
   await ana.locator('.dropdown').waitFor();
   await ana.locator('.chat-header h3').click();
@@ -280,6 +280,21 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
   await ana.getByRole('button', { name: 'Fonte Pixel' }).click();
   await ana.getByRole('button', { name: 'Gradiente', exact: true }).click();
   await ana.locator('.preview .pc-name .styled-name.font-pixel.effect-gradient').waitFor();
+  // Same colors Jacques picked (white to black): text must stay readable.
+  await ana.getByLabel('Primária: #ffffff').click();
+  await ana.getByLabel('Secundária: #0b0b0f').click();
+  await ana.locator('.preview').screenshot({ path: `${SHOTS}/15a-preview-white-black.png` });
+  await ana.getByLabel('Primária: #ec4899').click();
+  await ana.getByLabel('Secundária: #6366f1').click();
+  await ana.getByRole('button', { name: 'Jogo favorito' }).click();
+  await ana.getByLabel('Nome do jogo', { exact: true }).fill('Rocket League');
+  await ana.getByLabel('Comentário').fill('sou Lenda Supersônica');
+  await ana.getByRole('button', { name: 'Jogos que eu gosto' }).click();
+  for (const g of ['Minecraft', 'Valorant', 'osu!']) {
+    await ana.getByLabel('Nome do jogo para adicionar').fill(g);
+    await ana.keyboard.press('Enter');
+  }
+  await ana.locator('.preview .widget-games figure').nth(2).waitFor();
   await ana.screenshot({ path: `${SHOTS}/15-profile-editor.png` });
   await ana.getByRole('button', { name: 'Salvar alterações' }).click();
   await ana.getByText('Perfil salvo!').waitFor();
@@ -287,10 +302,20 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
   await bia.getByRole('button', { name: 'geral', exact: true }).click();
   await bia.locator('.member .styled-name.font-pixel.effect-gradient', { hasText: 'Ana' }).waitFor();
   await bia.locator('.message .author .styled-name.font-pixel', { hasText: 'Ana' }).first().click();
-  await bia.locator('.profile-card.themed', { hasText: 'ela/dela' }).waitFor();
+  await bia.locator('.profile-full .profile-card.themed', { hasText: 'ela/dela' }).waitFor();
+  await bia.locator('.profile-full .widget-favorite', { hasText: 'Rocket League' }).waitFor();
   await new Promise((r) => setTimeout(r, 400));
   await bia.screenshot({ path: `${SHOTS}/16-profile-card.png` });
+  await bia.getByRole('button', { name: /Servidores em comum/ }).click();
+  await bia.locator('.profile-side-body .list-row', { hasText: 'Comunidade Nexo' }).waitFor();
   await bia.keyboard.press('Escape');
+  // Your own profile from the panel at the bottom left.
+  await ana.locator('.user-panel .me').click();
+  await ana.locator('.me-popout', { hasText: 'Ver perfil completo' }).waitFor();
+  await ana.screenshot({ path: `${SHOTS}/17-me-popout.png` });
+  await ana.getByRole('button', { name: 'Ver perfil completo' }).click();
+  await ana.locator('.profile-full .widget-games', { hasText: 'Valorant' }).waitFor();
+  await ana.keyboard.press('Escape');
 });
 await step('Presença: Bia fica offline para Ana ao sair', async () => {
   await ana.getByRole('button', { name: 'geral', exact: true }).click();

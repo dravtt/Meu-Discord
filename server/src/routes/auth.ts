@@ -33,8 +33,8 @@ authRouter.get('/users/@me', requireAuth, async (req, res) => {
   const user = await one<UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [uid(req)]);
   if (!user) throw notFound();
   // Your own status is the stored preference, even when invisible.
-  const order = await one<{ server_order: string[] }>('SELECT server_order FROM users WHERE id = $1', [uid(req)]);
-  res.json({ ...(await publicUser(user)), status: user.status, serverOrder: order?.server_order ?? [] });
+  const extra = await one<{ server_order: string[]; widgets: unknown[] }>('SELECT server_order, widgets FROM users WHERE id = $1', [uid(req)]);
+  res.json({ ...(await publicUser(user)), status: user.status, serverOrder: extra?.server_order ?? [], widgets: extra?.widgets ?? [] });
 });
 
 /** The order of servers in the left rail. */
@@ -60,6 +60,14 @@ const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const NAME_FONTS = ['default', 'rounded', 'serif', 'mono', 'pixel', 'script', 'display', 'future'] as const;
 const NAME_EFFECTS = ['solid', 'gradient', 'neon', 'outline'] as const;
 
+const game = z.object({ name: z.string().trim().min(1).max(60), cover: uploadUrl.nullable() });
+/** Profile mural widgets, shown in the order given. */
+const widgets = z.array(z.discriminatedUnion('type', [
+  z.object({ type: z.literal('favorite'), game: game.nullable(), note: z.string().max(140) }),
+  z.object({ type: z.literal('games'), games: z.array(game).max(20) }),
+  z.object({ type: z.literal('text'), title: z.string().trim().max(40), text: z.string().max(400) }),
+])).max(6);
+
 authRouter.patch('/users/@me', requireAuth, async (req, res) => {
   const body = z.object({
     displayName: z.string().trim().min(1).max(32).optional(),
@@ -75,6 +83,7 @@ authRouter.patch('/users/@me', requireAuth, async (req, res) => {
       effect: z.enum(NAME_EFFECTS),
       colors: z.array(hexColor).max(2),
     }).optional(),
+    widgets: widgets.optional(),
     currentPassword: z.string().optional(),
     newPassword: password.optional(),
   }).parse(req.body);
@@ -96,15 +105,16 @@ authRouter.patch('/users/@me', requireAuth, async (req, res) => {
        profile_colors = COALESCE($11, profile_colors),
        name_font = COALESCE($12, name_font),
        name_effect = COALESCE($13, name_effect),
-       name_colors = COALESCE($14, name_colors)
-     WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+       name_colors = COALESCE($14, name_colors),
+       widgets = COALESCE($15::jsonb, widgets)
+     WHERE id = $1 RETURNING ${USER_COLUMNS}, widgets`,
     [uid(req), body.displayName ?? null, body.avatarUrl !== undefined, body.avatarUrl ?? null, body.bio ?? null, body.customStatus ?? null, body.status ?? null,
       body.bannerUrl !== undefined, body.bannerUrl ?? null, body.pronouns ?? null, body.profileColors ?? null,
-      body.nameStyle?.font ?? null, body.nameStyle?.effect ?? null, body.nameStyle?.colors ?? null]);
+      body.nameStyle?.font ?? null, body.nameStyle?.effect ?? null, body.nameStyle?.colors ?? null, body.widgets ? JSON.stringify(body.widgets) : null]);
   await broadcastPresence(uid(req));
   const pub = await publicUser(user!);
   await broadcastUserUpdate(uid(req), pub);
-  res.json({ ...pub, status: user!.status });
+  res.json({ ...pub, status: user!.status, widgets: (user as UserRow & { widgets: unknown[] }).widgets });
 });
 
 authRouter.get('/users/:id', requireAuth, async (req, res) => {
@@ -113,6 +123,10 @@ authRouter.get('/users/:id', requireAuth, async (req, res) => {
   const mutualServers = await one<{ ids: string[] }>(
     `SELECT coalesce(array_agg(a.server_id), '{}') AS ids FROM members a JOIN members b ON a.server_id = b.server_id
      WHERE a.user_id = $1 AND b.user_id = $2`, [user.id, uid(req)]);
+  const mutualFriends = await one<{ ids: string[] }>(
+    `SELECT coalesce(array_agg(a.target_id), '{}') AS ids FROM relationships a JOIN relationships b ON a.target_id = b.target_id
+     WHERE a.user_id = $1 AND b.user_id = $2 AND a.type = 'friend' AND b.type = 'friend'`, [user.id, uid(req)]);
   const note = await one<{ note: string }>('SELECT note FROM user_notes WHERE user_id = $1 AND target_id = $2', [uid(req), user.id]);
-  res.json({ ...(await publicUser(user)), mutualServerIds: mutualServers?.ids ?? [], note: note?.note ?? '' });
+  const extra = await one<{ widgets: unknown[] }>('SELECT widgets FROM users WHERE id = $1', [user.id]);
+  res.json({ ...(await publicUser(user)), mutualServerIds: mutualServers?.ids ?? [], mutualFriendIds: user.id === uid(req) ? [] : mutualFriends?.ids ?? [], note: note?.note ?? '', widgets: extra?.widgets ?? [] });
 });

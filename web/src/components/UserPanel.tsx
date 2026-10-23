@@ -5,13 +5,14 @@ import { openScreenShare } from './ScreenShareModal';
 import { toggleSoundboard, useSoundboardOpen } from './Soundboard';
 import { useStore, set, findChannel } from '../lib/store';
 import { api } from '../lib/api';
-import { Headphones, HeadphoneOff, Mic, MicOff, MonitorOff, MonitorUp, PartyPopper, PhoneOff, Settings, Signal, Video, VideoOff } from 'lucide-react';
+import { Headphones, HeadphoneOff, Mic, MicOff, MonitorOff, MonitorUp, PartyPopper, Pencil, PhoneOff, Settings, Copy, UserRound, Signal, Video, VideoOff } from 'lucide-react';
 import { leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall } from '../lib/voice';
 import type { Status } from '../lib/types';
 import { Avatar, STATUS_LABEL } from './Avatar';
 import { openModal } from './Modal';
 import { UserSettings } from './modals/UserSettings';
 import { StyledName } from '../lib/nameStyle';
+import { ProfileCard, ProfileView } from './ProfileCard';
 
 export function UserPanel() {
   const me = useStore((s) => s.me);
@@ -22,6 +23,7 @@ export function UserPanel() {
   const closeStatus = useRef(() => setMenu(false)).current;
   useClickOutside(panelRef, menu, closeStatus);
   const speaking = useSpeaking((s) => (me ? !!s[me.id] : false));
+  const status = useStore((s) => (me ? s.presence[me.id]?.status ?? me.status : 'offline'));
   if (!me) return null;
 
   async function setStatus(status: Status) {
@@ -34,13 +36,23 @@ export function UserPanel() {
     <div className="user-panel">
       <div ref={panelRef} className="status-anchor">
       {menu && (
-        <div className="status-menu">
-          {(['online', 'idle', 'dnd', 'invisible'] as const).map((st) => (
-            <button key={st} onClick={() => setStatus(st)}><span className={`status-dot inline ${st}`} /> {STATUS_LABEL[st]}</button>
-          ))}
+        <div className="me-popout">
+          <ProfileView user={me} name={me.displayName} status={status} customStatus={me.customStatus} compact>
+            {me.bio && <div className="pc-section"><p className="pc-bio">{me.bio}</p></div>}
+            <div className="pc-section me-popout-menu">
+              <button onClick={() => { setMenu(false); openModal(<UserSettings />); }}><Pencil size={16} /> Editar perfil</button>
+              <button onClick={() => { setMenu(false); openModal(<ProfileCard userId={me.id} serverId={null} />); }}><UserRound size={16} /> Ver perfil completo</button>
+              <div className="ctx-sep" />
+              {(['online', 'idle', 'dnd', 'invisible'] as const).map((st) => (
+                <button key={st} className={status === st ? 'active' : ''} onClick={() => setStatus(st)}><span className={`status-dot inline ${st}`} /> {STATUS_LABEL[st]}</button>
+              ))}
+              <div className="ctx-sep" />
+              <button onClick={() => { void navigator.clipboard?.writeText(me.id); setMenu(false); }}><Copy size={16} /> Copiar ID do usuário</button>
+            </div>
+          </ProfileView>
         </div>
       )}
-      <button className={`me ${speaking ? 'speaking' : ''}`} onClick={() => setMenu(!menu)} title="Alterar status">
+      <button className={`me ${speaking ? 'speaking' : ''}`} onClick={() => setMenu(!menu)} title="Seu perfil e status">
         <Avatar user={me} size={32} showStatus />
         <span className="me-names">
           <strong><StyledName user={me}>{me.displayName}</StyledName></strong>

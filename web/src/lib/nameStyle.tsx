@@ -48,3 +48,16 @@ export function profileBackground(colors: string[] | undefined) {
   if (!colors?.length) return undefined;
   return colors.length === 1 ? colors[0] : `linear-gradient(180deg, ${colors[0]}, ${colors[1]})`;
 }
+
+/** Relative brightness of a #rrggbb color, 0 (black) to 1 (white). */
+function luminance(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [n >> 16, (n >> 8) & 255, n & 255].map((v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+
+/** Whether a profile in these colors needs dark text: only when every color is light (text runs over the whole card). */
+export function isLightTheme(colors: string[] | undefined) {
+  if (!colors?.length) return false;
+  return Math.min(...colors.map(luminance)) > 0.4;
+}

@@ -14,7 +14,15 @@ export interface User {
   /** Profile theme: one color, or two for a gradient. */
   profileColors?: string[];
   nameStyle?: NameStyle;
+  /** Only on your own user and on a fetched profile. */
+  widgets?: Widget[];
 }
+
+export interface Game { name: string; cover: string | null }
+export type Widget =
+  | { type: 'favorite'; game: Game | null; note: string }
+  | { type: 'games'; games: Game[] }
+  | { type: 'text'; title: string; text: string };
 
 export interface NameStyle { font: string; effect: string; colors: string[] }
 

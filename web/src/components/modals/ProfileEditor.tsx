@@ -4,19 +4,21 @@ import { api } from '../../lib/api';
 import { useStore, set } from '../../lib/store';
 import { uploadImage } from '../../lib/upload';
 import { DEFAULT_NAME_STYLE, NAME_EFFECTS, NAME_FONTS, StyledName } from '../../lib/nameStyle';
-import type { NameStyle, User } from '../../lib/types';
+import type { NameStyle, User, Widget } from '../../lib/types';
+import { WidgetEditor } from './WidgetEditor';
+import { Mural } from '../Mural';
 import { ProfileView } from '../ProfileCard';
 
 const SWATCHES = ['#14b8a6', '#22c55e', '#0ea5e9', '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#f59e0b', '#ffffff', '#64748b', '#0b0b0f'];
 
 interface Draft {
   displayName: string; pronouns: string; customStatus: string; bio: string;
-  avatarUrl: string | null; bannerUrl: string | null; profileColors: string[]; nameStyle: NameStyle;
+  avatarUrl: string | null; bannerUrl: string | null; profileColors: string[]; nameStyle: NameStyle; widgets: Widget[];
 }
 
 const draftOf = (u: User): Draft => ({
   displayName: u.displayName, pronouns: u.pronouns ?? '', customStatus: u.customStatus, bio: u.bio,
-  avatarUrl: u.avatarUrl, bannerUrl: u.bannerUrl ?? null, profileColors: u.profileColors ?? [], nameStyle: u.nameStyle ?? DEFAULT_NAME_STYLE,
+  avatarUrl: u.avatarUrl, bannerUrl: u.bannerUrl ?? null, profileColors: u.profileColors ?? [], nameStyle: u.nameStyle ?? DEFAULT_NAME_STYLE, widgets: u.widgets ?? [],
 });
 
 /** Settings > Perfil: everything about how you look to others, with a live preview of your card. */
@@ -41,7 +43,9 @@ export function ProfileEditor() {
     try {
       // Only what changed, so an old value never blocks saving the rest.
       const before = draftOf(me) as unknown as Record<string, unknown>;
-      const body = Object.fromEntries(Object.entries({ ...draft, displayName: draft.displayName.trim() || me.displayName })
+      // A favorite game with no name yet is the same as none.
+      const widgets = draft.widgets.map((w) => (w.type === 'favorite' && !w.game?.name.trim() ? { ...w, game: null } : w));
+      const body = Object.fromEntries(Object.entries({ ...draft, widgets, displayName: draft.displayName.trim() || me.displayName })
         .filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(before[k])));
       const updated = await api<User>('/users/@me', { method: 'PATCH', body });
       set((s) => ({ me: updated, presence: { ...s.presence, [updated.id]: { status: updated.status, customStatus: updated.customStatus } } }));
@@ -130,6 +134,12 @@ export function ProfileEditor() {
               {effect.id === 'solid' && nameColors.length > 0 && <button className="btn small ghost" onClick={() => editName({ colors: [] })}><RotateCcw size={13} /> Cor padrão</button>}
             </div>
           </div>
+
+          <div className="pe-block">
+            <h3>Mural</h3>
+            <p className="muted">Widgets que aparecem no seu perfil completo: seu jogo favorito, os jogos que você curte ou um texto.</p>
+            <WidgetEditor widgets={draft.widgets} onChange={(widgets) => edit({ widgets })} onError={(text) => setMsg({ ok: false, text })} />
+          </div>
         </div>
 
         <div className="preview">
@@ -137,6 +147,7 @@ export function ProfileEditor() {
           <ProfileView user={preview} name={preview.displayName} status={status} customStatus={draft.customStatus}>
             {draft.bio && <div className="pc-section"><h4>Sobre mim</h4><p className="pc-bio">{draft.bio}</p></div>}
           </ProfileView>
+          {draft.widgets.length > 0 && <><h4 style={{ marginTop: 16 }}>Mural</h4><Mural widgets={draft.widgets} /></>}
         </div>
       </div>
 
