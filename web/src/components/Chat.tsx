@@ -1,4 +1,4 @@
-import { AtSign, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X } from 'lucide-react';
+import { AtSign, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X, UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore, set, get, dmName, memberName, memberColor, findChannel } from '../lib/store';
 import { api, assetUrl } from '../lib/api';
@@ -13,6 +13,8 @@ import { Composer } from './Composer';
 import { EmojiPicker } from './EmojiPicker';
 import { openModal, confirmDialog, Dialog, closeModal } from './Modal';
 import { ProfileCard } from './ProfileCard';
+import { userMenuProps } from './ContextMenu';
+import { NewGroupModal } from './modals/NewGroupModal';
 
 const EMPTY: Message[] = [];
 
@@ -53,10 +55,24 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
     return () => window.removeEventListener('focus', onFocus);
   }, [channel.id]);
 
+  // A newly arrived message always brings the conversation to the bottom; loading older history does not.
+  const lastId = messages.length ? messages[messages.length - 1].id : null;
+  const seenLast = useRef<string | null>(null);
   useLayoutEffect(() => {
     const el = scroller.current;
+    if (lastId !== seenLast.current) { stickToBottom.current = true; seenLast.current = lastId; }
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
-  }, [messages, loaded]);
+  }, [messages, loaded, lastId]);
+
+  // Images and embeds grow after they load; keep the bottom in view while that happens.
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const onLoad = () => { if (stickToBottom.current) el.scrollTop = el.scrollHeight; };
+    el.addEventListener('load', onLoad, true);
+    el.addEventListener('loadedmetadata', onLoad, true);
+    return () => { el.removeEventListener('load', onLoad, true); el.removeEventListener('loadedmetadata', onLoad, true); };
+  }, []);
 
   const loadOlder = useCallback(async () => {
     const list = get().messages[channel.id];
@@ -85,6 +101,7 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
         {channel.topic && <span className="topic" title={channel.topic}>{channel.topic}</span>}
         <div className="header-actions">
           {isDm && callChannel !== channel.id && <button className="icon-btn" title="Iniciar chamada" onClick={() => joinCall(channel.id)}><Phone size={20} /></button>}
+          {isDm && <button className="icon-btn" title={channel.type === 'group_dm' ? 'Adicionar amigos ao grupo' : 'Criar grupo com essa pessoa'} onClick={() => openModal(<NewGroupModal from={channel} />)}><UserPlus size={20} /></button>}
           {!isThread && <button className="icon-btn" title="Mensagens fixadas" onClick={() => openModal(<PinsModal channel={channel} />)}><Pin size={20} /></button>}
           {!isThread && !isDm && <button className="icon-btn" title="Tópicos" onClick={() => openModal(<ThreadsModal channel={channel} />)}><MessagesSquare size={20} /></button>}
           {!isThread && !isDm && <button className={`icon-btn ${showMembers ? 'on' : ''}`} title="Lista de membros" onClick={() => set({ showMembers: !showMembers })}><Users size={20} /></button>}
@@ -159,11 +176,11 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
         <div className="message-row" id={`msg-${m.id}`}>
           {grouped && !showDay
             ? <span className="hover-time">{new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-            : <button className="avatar-btn" onClick={() => openModal(<ProfileCard userId={m.author.id} serverId={serverId} />)}><Avatar user={m.author} size={40} /></button>}
+            : <button className="avatar-btn" {...userMenuProps(m.author.id, serverId)} onClick={() => openModal(<ProfileCard userId={m.author.id} serverId={serverId} />)}><Avatar user={m.author} size={40} /></button>}
           <div className="message-body">
             {(!grouped || showDay) && (
               <div className="message-meta">
-                <button className="author" style={{ color: memberColor(serverId, m.author.id) }} onClick={() => openModal(<ProfileCard userId={m.author.id} serverId={serverId} />)}>
+                <button className="author" style={{ color: memberColor(serverId, m.author.id) }} {...userMenuProps(m.author.id, serverId)} onClick={() => openModal(<ProfileCard userId={m.author.id} serverId={serverId} />)}>
                   {memberName(serverId, m.author)}
                 </button>
                 <time>{formatTime(m.createdAt)}</time>

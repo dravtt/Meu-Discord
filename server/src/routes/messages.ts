@@ -8,7 +8,8 @@ import { one, query, transaction } from '../db.js';
 import { requireAuth, uid } from '../auth.js';
 import { badRequest, forbidden, notFound } from '../errors.js';
 import { has, P, requireChannel, type ChannelRow } from '../permissions.js';
-import { emitToChannel } from '../realtime.js';
+import { emitToChannel, emitToUser } from '../realtime.js';
+import { dmPayload } from './dms.js';
 import { loadMessage, loadMessages, reactionSummary } from '../serializers.js';
 import { config } from '../config.js';
 import { isBlockedBetween } from './relationships.js';
@@ -104,6 +105,14 @@ messagesRouter.post('/channels/:channelId/messages', upload.array('files', 10), 
   });
 
   const message = await loadMessage(id, uid(req));
+  if (channel.type === 'dm') {
+    // A new message reopens the conversation for anyone who had closed it.
+    const reopened = await query('UPDATE dm_recipients SET closed = false WHERE channel_id = $1 AND closed RETURNING user_id', [channel.id]);
+    if (reopened.length) {
+      const payload = await dmPayload(channel.id);
+      for (const r of reopened) emitToUser(r.user_id, 'dm:create', payload);
+    }
+  }
   await emitToChannel(channel, 'message:create', message);
   res.status(201).json(message);
 });

@@ -4,6 +4,7 @@ import type { Channel, Member, Server } from '../lib/types';
 import { Avatar } from './Avatar';
 import { openModal } from './Modal';
 import { ProfileCard } from './ProfileCard';
+import { userMenuProps } from './ContextMenu';
 
 /** Online members grouped by their highest hoisted role, then everyone offline. */
 export function MemberList({ server }: { server: Server; channel: Channel }) {
@@ -27,7 +28,7 @@ export function MemberList({ server }: { server: Server; channel: Channel }) {
         <div key={g.title}>
           <div className="section-title"><span>{g.title} — {g.members.length}</span></div>
           {g.members.sort(byName).map((m) => (
-            <button key={m.user.id} className={`member ${online(m) ? '' : 'offline'}`} onClick={() => openModal(<ProfileCard userId={m.user.id} serverId={server.id} />)}>
+            <button key={m.user.id} className={`member ${online(m) ? '' : 'offline'}`} {...userMenuProps(m.user.id, server.id)} onClick={() => openModal(<ProfileCard userId={m.user.id} serverId={server.id} />)}>
               <Avatar user={m.user} size={32} showStatus />
               <span className="member-text">
                 <span style={{ color: memberColor(server.id, m.user.id) }}>{memberName(server.id, m.user)}{server.ownerId === m.user.id && <Crown size={14} className="owner-crown" />}</span>

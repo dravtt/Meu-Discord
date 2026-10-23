@@ -41,10 +41,10 @@ export function connectSocket() {
   socket.io.on('reconnect', () => { void bootstrap(); });
 
   socket.on('message:create', (m: Message) => {
+    const viewing = currentChannelId() === m.channelId && document.hasFocus();
     addMessage(m);
     set((s) => {
       const me = s.me?.id;
-      const viewing = currentChannelId() === m.channelId && document.hasFocus();
       const rs = s.readStates[m.channelId] ?? { channelId: m.channelId, unread: false, mentions: 0 };
       const mentioned = m.mentionEveryone || (me ? m.mentions.includes(me) : false);
       const channel = findChannel(m.channelId);
@@ -62,7 +62,7 @@ export function connectSocket() {
     if (channel && (channel.type === 'dm' || channel.type === 'group_dm')) {
       set((s) => ({ dms: { ...s.dms, [channel.id]: { ...channel, lastMessageAt: m.createdAt } } }));
     }
-    notifyForMessage(m);
+    notifyForMessage(m, viewing);
   });
   socket.on('message:update', (m: Message) => updateMessage(m));
   socket.on('message:delete', ({ id, channelId }: { id: string; channelId: string }) => removeMessage(channelId, id));
@@ -152,6 +152,10 @@ export async function bootstrap() {
     hasMore: {},
   }));
   const snapshots = await Promise.all(servers.map((s) => api<Server>(`/servers/${s.id}`)));
+  // The user's own rail order first; servers they never placed keep the server's order at the end.
+  const order: string[] = me.serverOrder ?? [];
+  const rank = (id: string) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
+  snapshots.sort((a, b) => rank(a.id) - rank(b.id));
   set({ serverOrder: [] });
   for (const snap of snapshots) upsertServer(snap);
 }

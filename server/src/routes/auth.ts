@@ -33,7 +33,24 @@ authRouter.get('/users/@me', requireAuth, async (req, res) => {
   const user = await one<UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [uid(req)]);
   if (!user) throw notFound();
   // Your own status is the stored preference, even when invisible.
-  res.json({ ...(await publicUser(user)), status: user.status });
+  const order = await one<{ server_order: string[] }>('SELECT server_order FROM users WHERE id = $1', [uid(req)]);
+  res.json({ ...(await publicUser(user)), status: user.status, serverOrder: order?.server_order ?? [] });
+});
+
+/** The order of servers in the left rail. */
+authRouter.put('/users/@me/server-order', requireAuth, async (req, res) => {
+  const { serverIds } = z.object({ serverIds: z.array(z.string().uuid()).max(500) }).parse(req.body);
+  await one('UPDATE users SET server_order = $2 WHERE id = $1', [uid(req), serverIds]);
+  res.status(204).end();
+});
+
+/** A private note about another user. */
+authRouter.put('/users/:id/note', requireAuth, async (req, res) => {
+  const { note } = z.object({ note: z.string().max(256) }).parse(req.body);
+  if (!(await one('SELECT 1 FROM users WHERE id = $1', [req.params.id]))) throw notFound('Usuário não encontrado');
+  await one(`INSERT INTO user_notes (user_id, target_id, note) VALUES ($1, $2, $3)
+             ON CONFLICT (user_id, target_id) DO UPDATE SET note = $3`, [uid(req), req.params.id, note]);
+  res.json({ note });
 });
 
 authRouter.patch('/users/@me', requireAuth, async (req, res) => {
@@ -71,5 +88,6 @@ authRouter.get('/users/:id', requireAuth, async (req, res) => {
   const mutualServers = await one<{ ids: string[] }>(
     `SELECT coalesce(array_agg(a.server_id), '{}') AS ids FROM members a JOIN members b ON a.server_id = b.server_id
      WHERE a.user_id = $1 AND b.user_id = $2`, [user.id, uid(req)]);
-  res.json({ ...(await publicUser(user)), mutualServerIds: mutualServers?.ids ?? [] });
+  const note = await one<{ note: string }>('SELECT note FROM user_notes WHERE user_id = $1 AND target_id = $2', [uid(req), user.id]);
+  res.json({ ...(await publicUser(user)), mutualServerIds: mutualServers?.ids ?? [], note: note?.note ?? '' });
 });

@@ -141,6 +141,20 @@ await step('Upload de imagem', async () => {
   await bia.getByPlaceholder('Conversar em @Ana').press('Enter');
   await ana.locator('.attachment-img').waitFor();
 });
+await step('Fechar DM, reabrir com mensagem nova e atalho na barra lateral', async () => {
+  const item = ana.locator('.dm-item', { hasText: 'Bia' });
+  await item.hover();
+  await item.getByLabel('Fechar conversa').click();
+  await item.waitFor({ state: 'detached' });
+  await bia.getByPlaceholder('Conversar em @Ana').fill('Voltei!');
+  await bia.keyboard.press('Enter');
+  await item.waitFor();
+  await ana.locator('.rail-dm .badge', { hasText: '1' }).waitFor();
+  await ana.screenshot({ path: `${SHOTS}/10-dm-rail.png` });
+  await ana.locator('.rail-dm .rail-btn').click();
+  await ana.locator('.message', { hasText: 'Voltei!' }).waitFor();
+  await ana.locator('.rail-dm').waitFor({ state: 'detached' });
+});
 await step('Ligação na DM: Bia recusa, depois atende', async () => {
   await ana.getByTitle('Iniciar chamada').click();
   await bia.locator('.incoming-call', { hasText: 'Ana' }).waitFor({ timeout: 10000 });
@@ -160,6 +174,35 @@ await step('Ligação na DM: Bia recusa, depois atende', async () => {
   await ana.locator('.call-tile').nth(1).waitFor({ state: 'detached', timeout: 15000 });
   await ana.locator('.call-controls').getByTitle('Desconectar').click();
 });
+await step('Menu do botão direito, nota e menus que fecham ao clicar fora', async () => {
+  await ana.getByLabel('Comunidade Nexo').click();
+  await ana.getByRole('button', { name: 'geral', exact: true }).click();
+  await ana.locator('.member-list .member', { hasText: 'Bia' }).click({ button: 'right' });
+  const menu = ana.locator('.ctx-menu');
+  await menu.getByText('Adicionar nota').waitFor();
+  if (await menu.getByText('Volume do usuário').count()) throw new Error('volume aparece fora da chamada');
+  await ana.screenshot({ path: `${SHOTS}/11-menu.png` });
+  await menu.getByText('Adicionar nota').click();
+  await ana.locator('.dialog textarea').fill('Amiga do trabalho');
+  await ana.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await ana.locator('.member-list .member', { hasText: 'Bia' }).click();
+  const note = ana.locator('.note-input');
+  await note.waitFor();
+  if ((await note.inputValue()) !== 'Amiga do trabalho') throw new Error('nota não salva');
+  await ana.keyboard.press('Escape');
+  await ana.locator('.member-list .member', { hasText: 'Bia' }).click({ button: 'right' });
+  await menu.waitFor();
+  await ana.locator('.chat-header h3').click();
+  await menu.waitFor({ state: 'detached' });
+  await ana.locator('.user-panel .me').click();
+  await ana.locator('.status-menu').waitFor();
+  await ana.locator('.chat-header h3').click();
+  await ana.locator('.status-menu').waitFor({ state: 'detached' });
+  await ana.locator('.sidebar-header').click();
+  await ana.locator('.dropdown').waitFor();
+  await ana.locator('.chat-header h3').click();
+  await ana.locator('.dropdown').waitFor({ state: 'detached' });
+});
 await step('Ambas entram no canal de voz com câmera', async () => {
   for (const p of [ana, bia]) {
     await p.getByLabel('Comunidade Nexo').click();
@@ -172,14 +215,44 @@ await step('Ambas entram no canal de voz com câmera', async () => {
   await ana.locator('.voice-users .voice-user').nth(1).waitFor();
   await new Promise((r) => setTimeout(r, 1500));
   await bia.screenshot({ path: `${SHOTS}/07-voice.png` });
-  // Screen share gets its own tile and the spotlight.
+  // The fake microphone beeps: the speaking border must light up from the real audio.
+  await bia.locator('.call-tile.speaking').first().waitFor({ timeout: 10000 });
+  await bia.locator('.voice-user.speaking').first().waitFor({ timeout: 10000 });
+  await ana.locator('.voice-user', { hasText: 'Bia' }).click({ button: 'right' });
+  await ana.locator('.ctx-menu').getByText('Volume do usuário').waitFor();
+  await ana.screenshot({ path: `${SHOTS}/12-volume.png` });
+  await ana.keyboard.press('Escape');
+  // A screen share covers the sharer's own tile (camera in the corner) and takes the spotlight.
   await ana.locator('.call-controls').getByTitle('Compartilhar tela').click();
-  await bia.locator('.call-stage.focused .call-tile.screen video').waitFor({ timeout: 15000 });
+  await bia.locator('.call-stage.focused > .call-tile.screen > video').waitFor({ timeout: 15000 });
+  await bia.locator('.call-stage.focused > .call-tile.screen .tile-pip video').waitFor({ timeout: 15000 });
   await bia.locator('.voice-user .live').waitFor();
   await new Promise((r) => setTimeout(r, 1500));
   await bia.screenshot({ path: `${SHOTS}/08-screen.png` });
   await ana.getByTitle('Desconectar').first().click();
   await bia.locator('.call-tile').nth(1).waitFor({ state: 'detached', timeout: 15000 });
+});
+await step('Aparência, notificações e voz', async () => {
+  await ana.locator('.user-panel').getByTitle('Configurações').click();
+  await ana.getByRole('button', { name: 'Aparência', exact: true }).click();
+  await ana.getByRole('button', { name: 'Claro', exact: true }).click();
+  if ((await ana.evaluate(() => document.documentElement.dataset.theme)) !== 'light') throw new Error('tema não aplicado');
+  await ana.screenshot({ path: `${SHOTS}/13-light.png` });
+  await ana.getByRole('button', { name: 'Escuro', exact: true }).click();
+  await ana.getByRole('button', { name: 'Voz e vídeo', exact: true }).click();
+  await ana.getByText('Apertar para falar', { exact: true }).click();
+  await ana.locator('.key-capture', { hasText: 'V' }).waitFor();
+  await ana.getByText('Detecção de voz', { exact: true }).click();
+  await ana.getByText('Determinar automaticamente a sensibilidade de entrada').click();
+  await ana.locator('.sensitivity-slider').waitFor();
+  await ana.getByRole('button', { name: 'Testar microfone' }).click();
+  await new Promise((r) => setTimeout(r, 1200));
+  await ana.screenshot({ path: `${SHOTS}/14-voice-settings.png` });
+  await ana.getByRole('button', { name: 'Parar teste' }).click();
+  await ana.getByText('Determinar automaticamente a sensibilidade de entrada').click();
+  await ana.getByRole('button', { name: 'Notificações', exact: true }).click();
+  await ana.locator('.notify-server select').first().selectOption('mentions');
+  await ana.keyboard.press('Escape');
 });
 await step('Presença: Bia fica offline para Ana ao sair', async () => {
   await ana.getByRole('button', { name: 'geral', exact: true }).click();

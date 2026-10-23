@@ -294,6 +294,30 @@ describe('presence and voice', () => {
   });
 });
 
+describe('DM close, notes and server order', () => {
+  it('closes a DM until a new message reopens it', async () => {
+    const dm = (await api().post('/api/dms').set(auth(ana)).send({ userIds: [bia.id] })).body;
+    await api().delete(`/api/dms/${dm.id}`).set(auth(bia)).expect(204);
+    let list = (await api().get('/api/dms').set(auth(bia)).expect(200)).body;
+    expect(list.map((d: any) => d.id)).not.toContain(dm.id);
+    const biaSocket = await connect(bia);
+    const reopened = nextEvent(biaSocket, 'dm:create');
+    await api().post(`/api/channels/${dm.id}/messages`).set(auth(ana)).send({ content: 'volta!' }).expect(201);
+    expect((await reopened).id).toBe(dm.id);
+    list = (await api().get('/api/dms').set(auth(bia)).expect(200)).body;
+    expect(list.map((d: any) => d.id)).toContain(dm.id);
+    biaSocket.close();
+  });
+
+  it('keeps private notes and the server order', async () => {
+    await api().put(`/api/users/${bia.id}/note`).set(auth(ana)).send({ note: 'amiga da escola' }).expect(200);
+    expect((await api().get(`/api/users/${bia.id}`).set(auth(ana)).expect(200)).body.note).toBe('amiga da escola');
+    expect((await api().get(`/api/users/${bia.id}`).set(auth(caio)).expect(200)).body.note).toBe('');
+    await api().put('/api/users/@me/server-order').set(auth(ana)).send({ serverIds: [serverId] }).expect(204);
+    expect((await api().get('/api/users/@me').set(auth(ana)).expect(200)).body.serverOrder).toEqual([serverId]);
+  });
+});
+
 describe('category permission sync', () => {
   it('channels without overwrites follow a private category', async () => {
     const srv = await api().post('/api/servers').set(auth(ana)).send({ name: 'Sync' }).expect(201);

@@ -1,12 +1,21 @@
 import { create } from 'zustand';
-import { AudioPresets, Room, RoomEvent, ScreenSharePresets, Track, VideoPresets, type Participant } from 'livekit-client';
+import { AudioPresets, LocalAudioTrack, Room, RoomEvent, ScreenSharePresets, Track, VideoPresets, type Participant, type RemoteParticipant } from 'livekit-client';
 import { api } from './api';
 import { socket } from './socket';
 import { audioConstraints, useVoiceSettings } from './voiceSettings';
-import { playHangup, startRingback } from './sounds';
+import { playDeafen, playHangup, playJoin, playLeave, playMute, playStreamStart, playUndeafen, playUnmute, startRingback } from './sounds';
+import { MicGate } from './micGate';
+import { setSpeaking, watchRemoteAudio } from './speaking';
+import { usePrefs } from './prefs';
 
-/** One box in the call grid: a person (camera or avatar) or a screen someone is sharing. */
-export interface Tile { key: string; identity: string; name: string; kind: 'person' | 'screen'; local: boolean; speaking: boolean; track?: Track }
+/**
+ * One box in the call grid per person. When they share their screen, the screen fills their box
+ * (their camera, if on, shows small in a corner).
+ */
+export interface Tile { key: string; identity: string; name: string; local: boolean; camera?: Track; screen?: Track }
+
+/** Live microphone level while in a call, for the settings screen. */
+export const useMicLevel = create<{ db: number; threshold: number; open: boolean }>(() => ({ db: -100, threshold: -55, open: false }));
 
 interface CallState {
   channelId: string | null;
@@ -54,37 +63,63 @@ export function onRingStopped(channelId: string, reason: string, declinedBy?: st
   if (room && room.remoteParticipants.size === 0) void leaveCall();
 }
 
-/** Applies new microphone settings to the live call, if there is one. */
+/** Applies new microphone/speaker settings to the live call, if there is one. */
 export async function applyVoiceSettings() {
   if (!room) return;
+  const s = useVoiceSettings.getState();
   const mic = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
-  if (mic && 'restartTrack' in mic) await (mic as any).restartTrack(audioConstraints()).catch(() => {});
-  const sink = useVoiceSettings.getState().outputDeviceId;
-  for (const el of audioEls.values()) setSink(el, sink);
-}
-
-function setSink(el: HTMLMediaElement, deviceId: string) {
-  const media = el as HTMLMediaElement & { setSinkId?: (id: string) => Promise<void> };
-  if (media.setSinkId) void media.setSinkId(deviceId === 'default' ? '' : deviceId).catch(() => {});
+  if (mic instanceof LocalAudioTrack) await mic.restartTrack(audioConstraints()).catch(() => {});
+  await room.switchActiveDevice('audiooutput', s.outputDeviceId).catch(() => {});
 }
 
 let room: Room | null = null;
+let audioCtx: AudioContext | null = null;
 const audioEls = new Map<string, HTMLMediaElement>();
+const audioWatchers = new Map<string, () => void>();
+
+/** Per-person volume and local mute from preferences; deafen silences everyone. */
+export function applyVolumes() {
+  if (!room) return;
+  const { userVolume, userMuted } = usePrefs.getState();
+  const deafened = useCall.getState().deafened;
+  for (const p of room.remoteParticipants.values()) {
+    const vol = deafened || userMuted[p.identity] ? 0 : (userVolume[p.identity] ?? 100) / 100;
+    p.setVolume(vol, Track.Source.Microphone);
+    p.setVolume(deafened ? 0 : 1, Track.Source.ScreenShareAudio);
+  }
+}
+usePrefs.subscribe((p, prev) => { if (p.userVolume !== prev.userVolume || p.userMuted !== prev.userMuted) applyVolumes(); });
+
+function visible(p: Participant, source: Track.Source) {
+  const pub = p.getTrackPublication(source);
+  return pub && !pub.isMuted ? pub.track : undefined;
+}
 
 function syncTiles() {
   if (!room) return useCall.setState({ tiles: [] });
   const local = room.localParticipant;
   const all: Participant[] = [local, ...room.remoteParticipants.values()];
-  const tiles: Tile[] = [];
-  for (const p of all) {
-    const base = { identity: p.identity, name: p.name || p.identity, local: p === local };
-    const cam = p.getTrackPublication(Track.Source.Camera);
-    tiles.push({ ...base, key: `${p.identity}:person`, kind: 'person', speaking: p.isSpeaking, track: cam && !cam.isMuted ? cam.track : undefined });
-    const share = p.getTrackPublication(Track.Source.ScreenShare);
-    const screen = share && !share.isMuted ? share.track : undefined;
-    if (screen) tiles.push({ ...base, key: `${p.identity}:screen`, kind: 'screen', speaking: false, track: screen });
-  }
-  useCall.setState({ tiles });
+  useCall.setState({
+    tiles: all.map((p) => ({
+      key: p.identity, identity: p.identity, name: p.name || p.identity, local: p === local,
+      camera: visible(p, Track.Source.Camera), screen: visible(p, Track.Source.ScreenShare),
+    })),
+  });
+}
+
+/** Puts the mic gate (voice detection / push to talk) on the published microphone. */
+async function attachGate() {
+  const r = room;
+  const mic = r?.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
+  if (!r || !(mic instanceof LocalAudioTrack) || mic.getProcessor()) return;
+  audioCtx ??= new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
+  await audioCtx.resume().catch(() => {});
+  mic.setAudioContext(audioCtx);
+  const me = r.localParticipant.identity;
+  await mic.setProcessor(new MicGate(({ open, db, threshold }) => {
+    useMicLevel.setState({ open, db, threshold });
+    setSpeaking(me, open && !useCall.getState().muted);
+  })).catch((e) => console.warn('mic gate unavailable', e));
 }
 
 function sendState() {
@@ -95,13 +130,16 @@ function sendState() {
 export async function joinCall(channelId: string) {
   if (useCall.getState().channelId === channelId) return;
   await leaveCall();
-  useCall.setState({ channelId, connecting: true, error: null, video: false, screen: false });
+  useCall.setState({ channelId, connecting: true, error: null, notice: null, video: false, screen: false });
   try {
     const { url, token, canSpeak, ringing } = await api<{ url: string; token: string; canSpeak: boolean; ringing: boolean }>(`/channels/${channelId}/voice`, { method: 'POST' });
     if (ringing) setRinging(true);
     room = new Room({
       adaptiveStream: true,
       dynacast: true,
+      // Mixing in Web Audio allows per-person volume above 100%.
+      webAudioMix: true,
+      audioOutput: { deviceId: useVoiceSettings.getState().outputDeviceId },
       audioCaptureDefaults: audioConstraints(),
       videoCaptureDefaults: { resolution: VideoPresets.h720.resolution },
       publishDefaults: {
@@ -115,33 +153,37 @@ export async function joinCall(channelId: string) {
       },
     });
     room
-      .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
+      .on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
+        const key = `${participant.identity}:${track.sid}`;
         if (track.kind === Track.Kind.Audio) {
           const el = track.attach();
-          el.muted = useCall.getState().deafened;
-          setSink(el, useVoiceSettings.getState().outputDeviceId);
-          audioEls.set(`${participant.identity}:${track.sid}`, el);
+          audioEls.set(key, el);
           document.body.appendChild(el);
+          if (pub.source === Track.Source.Microphone) audioWatchers.set(key, watchRemoteAudio(participant.identity, track.mediaStreamTrack));
+          applyVolumes();
         }
+        if (pub.source === Track.Source.ScreenShare) playStreamStart();
         syncTiles();
       })
       .on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
         const key = `${participant.identity}:${track.sid}`;
         audioEls.get(key)?.remove();
         audioEls.delete(key);
+        audioWatchers.get(key)?.();
+        audioWatchers.delete(key);
         track.detach();
         syncTiles();
       })
-      .on(RoomEvent.ParticipantConnected, () => { if (useCall.getState().ringing) setRinging(false); syncTiles(); })
-      .on(RoomEvent.ParticipantDisconnected, syncTiles)
-      .on(RoomEvent.LocalTrackPublished, syncTiles)
+      .on(RoomEvent.ParticipantConnected, () => { if (useCall.getState().ringing) setRinging(false); playJoin(); syncTiles(); })
+      .on(RoomEvent.ParticipantDisconnected, (p: RemoteParticipant) => { setSpeaking(p.identity, false); playLeave(); syncTiles(); })
+      .on(RoomEvent.LocalTrackPublished, (pub) => { if (pub.source === Track.Source.Microphone) void attachGate(); syncTiles(); })
       .on(RoomEvent.TrackMuted, syncTiles)
       .on(RoomEvent.TrackUnmuted, syncTiles)
       .on(RoomEvent.LocalTrackUnpublished, () => { useCall.setState({ screen: !!room?.localParticipant.isScreenShareEnabled }); sendState(); syncTiles(); })
-      .on(RoomEvent.ActiveSpeakersChanged, syncTiles)
       .on(RoomEvent.Disconnected, () => { if (room) void leaveCall(); });
     await room.connect(url, token);
     useCall.setState({ connecting: false });
+    playJoin();
     syncTiles();
     // The microphone prompt can take a while; do not hold the "connecting" state on it.
     if (canSpeak) {
@@ -165,6 +207,9 @@ export async function leaveCall(keepError = false) {
   if (r) playHangup();
   for (const el of audioEls.values()) el.remove();
   audioEls.clear();
+  for (const stop of audioWatchers.values()) stop();
+  audioWatchers.clear();
+  if (r) setSpeaking(r.localParticipant.identity, false);
   if (r) await r.disconnect();
   if (useCall.getState().channelId) {
     socket?.emit('voice:leave');
@@ -173,17 +218,31 @@ export async function leaveCall(keepError = false) {
   useCall.setState((s) => ({ channelId: null, connecting: false, tiles: [], video: false, screen: false, error: keepError ? s.error : null }));
 }
 
-export async function toggleMute() {
-  const muted = !useCall.getState().muted;
+async function setMuted(muted: boolean) {
   useCall.setState({ muted });
-  await room?.localParticipant.setMicrophoneEnabled(!muted).catch(() => useCall.setState({ muted: true }));
+  if (room) {
+    setSpeaking(room.localParticipant.identity, false);
+    await room.localParticipant.setMicrophoneEnabled(!muted).catch(() => useCall.setState({ muted: true }));
+  }
+}
+
+export async function toggleMute() {
+  const { muted, deafened } = useCall.getState();
+  // Unmuting while deafened undeafens too, like most voice apps.
+  if (muted && deafened) return toggleDeafen();
+  if (muted) playUnmute(); else playMute();
+  await setMuted(!muted);
   sendState();
 }
 
-export function toggleDeafen() {
+let mutedBeforeDeafen = false;
+/** Deafening also mutes your mic; undeafening puts the mic back how it was. */
+export async function toggleDeafen() {
   const deafened = !useCall.getState().deafened;
+  if (deafened) { mutedBeforeDeafen = useCall.getState().muted; playDeafen(); } else playUndeafen();
   useCall.setState({ deafened });
-  for (const el of audioEls.values()) el.muted = deafened;
+  applyVolumes();
+  await setMuted(deafened ? true : mutedBeforeDeafen);
   sendState();
 }
 

@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useClickOutside } from './ContextMenu';
+import { useSpeaking } from '../lib/speaking';
 import { useStore, set, findChannel } from '../lib/store';
 import { api } from '../lib/api';
 import { Headphones, HeadphoneOff, Mic, MicOff, MonitorOff, MonitorUp, PhoneOff, Settings, Signal, Video, VideoOff } from 'lucide-react';
@@ -13,6 +15,10 @@ export function UserPanel() {
   const muted = useCall((s) => s.muted);
   const deafened = useCall((s) => s.deafened);
   const [menu, setMenu] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeStatus = useRef(() => setMenu(false)).current;
+  useClickOutside(panelRef, menu, closeStatus);
+  const speaking = useSpeaking((s) => (me ? !!s[me.id] : false));
   if (!me) return null;
 
   async function setStatus(status: Status) {
@@ -23,6 +29,7 @@ export function UserPanel() {
 
   return (
     <div className="user-panel">
+      <div ref={panelRef} className="status-anchor">
       {menu && (
         <div className="status-menu">
           {(['online', 'idle', 'dnd', 'invisible'] as const).map((st) => (
@@ -30,13 +37,14 @@ export function UserPanel() {
           ))}
         </div>
       )}
-      <button className="me" onClick={() => setMenu(!menu)} title="Alterar status">
+      <button className={`me ${speaking ? 'speaking' : ''}`} onClick={() => setMenu(!menu)} title="Alterar status">
         <Avatar user={me} size={32} showStatus />
         <span className="me-names">
           <strong>{me.displayName}</strong>
           <small>{me.customStatus || STATUS_LABEL[me.status]}</small>
         </span>
       </button>
+      </div>
       <button className={`icon-btn ${muted ? 'off' : ''}`} title={muted ? 'Ativar microfone' : 'Silenciar'} onClick={toggleMute}>{muted ? <MicOff size={18} /> : <Mic size={18} />}</button>
       <button className={`icon-btn ${deafened ? 'off' : ''}`} title={deafened ? 'Ativar áudio' : 'Desativar áudio'} onClick={toggleDeafen}>{deafened ? <HeadphoneOff size={18} /> : <Headphones size={18} />}</button>
       <button className="icon-btn" title="Configurações" onClick={() => openModal(<UserSettings />)}><Settings size={18} /></button>

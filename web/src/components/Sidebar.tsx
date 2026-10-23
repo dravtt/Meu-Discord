@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, Hash, HeadphoneOff, MicOff, Plus, Settings, Users, Video, Volume2, X } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore, set, dmName, memberName } from '../lib/store';
 import { has, P } from '../lib/permissions';
 import type { Channel, Server } from '../lib/types';
@@ -13,6 +13,8 @@ import { ServerSettings } from './modals/ServerSettings';
 import { ChannelSettings } from './modals/ChannelSettings';
 import { NewGroupModal } from './modals/NewGroupModal';
 import { UserPanel, VoiceBar } from './UserPanel';
+import { openMenu, ServerMenu, useClickOutside, UserMenu } from './ContextMenu';
+import { useSpeaking } from '../lib/speaking';
 
 export function Sidebar() {
   const view = useStore((s) => s.view);
@@ -49,12 +51,19 @@ function HomeSidebar() {
           const other = dm.type === 'dm' ? dm.recipients?.find((u) => u.id !== me?.id) : undefined;
           const rs = readStates[dm.id];
           return (
-            <button key={dm.id} className={`dm-item ${activeDm === dm.id ? 'active' : ''} ${rs?.unread ? 'unread' : ''}`}
-              onClick={() => set({ view: { kind: 'home', dmId: dm.id } })}>
-              {other ? <Avatar user={other} size={32} showStatus /> : <span className="group-icon">{(dm.recipients?.length ?? 0)}</span>}
-              <span className="dm-name">{dmName(dm, me?.id)}</span>
-              {!!rs?.mentions && <span className="badge inline">{rs.mentions}</span>}
-            </button>
+            <div key={dm.id} className={`dm-item ${activeDm === dm.id ? 'active' : ''} ${rs?.unread ? 'unread' : ''}`}
+              onContextMenu={other ? (e) => openMenu(e, <UserMenu userId={other.id} />) : undefined}>
+              <button className="dm-open" onClick={() => set({ view: { kind: 'home', dmId: dm.id }, openThreadId: null })}>
+                {other ? <Avatar user={other} size={32} showStatus /> : <span className="group-icon"><Users size={18} /></span>}
+                <span className="dm-text">
+                  <span className="dm-name">{dmName(dm, me?.id)}</span>
+                  {!other && <small>{dm.recipients?.length ?? 0} membros</small>}
+                </span>
+                {!!rs?.mentions && <span className="badge inline">{rs.mentions}</span>}
+              </button>
+              <button className="dm-close" title={other ? 'Fechar conversa' : 'Sair do grupo'} aria-label={other ? 'Fechar conversa' : 'Sair do grupo'}
+                onClick={() => closeDm(dm, me?.id)}><X size={16} /></button>
+            </div>
           );
         })}
         {dms.length === 0 && <p className="muted small pad">Nenhuma conversa ainda. Comece uma pela lista de amigos.</p>}
@@ -63,8 +72,29 @@ function HomeSidebar() {
   );
 }
 
+/** 1:1 conversations just hide (they come back with the next message); groups are left. */
+function closeDm(dm: Channel, meId: string | undefined) {
+  if (dm.type === 'dm') { void api(`/dms/${dm.id}`, { method: 'DELETE' }); return; }
+  confirmDialog('Sair do grupo', `Sair de ${dmName(dm, meId)}? Você não vai mais receber as mensagens desse grupo.`, 'Sair do grupo', async () => {
+    await api(`/dms/${dm.id}/recipients/@me`, { method: 'DELETE' });
+  });
+}
+
+function VoiceUser({ serverId, userId, user, flags }: { serverId: string; userId: string; user: any; flags: React.ReactNode }) {
+  const speaking = useSpeaking((s) => !!s[userId]);
+  return (
+    <div className={`voice-user ${speaking ? 'speaking' : ''}`} onContextMenu={(e) => openMenu(e, <UserMenu userId={userId} serverId={serverId} />)}>
+      <span className="voice-avatar"><Avatar user={user} size={20} /></span>
+      <span>{memberName(serverId, user)}</span>
+      <span className="voice-flags">{flags}</span>
+    </div>
+  );
+}
+
 function ServerSidebar({ server }: { server: Server }) {
   const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useClickOutside(menuRef, menu, () => setMenu(false));
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const me = useStore((s) => s.me);
   const view = useStore((s) => s.view);
@@ -111,11 +141,8 @@ function ServerSidebar({ server }: { server: Server }) {
               const member = server.members.find((m) => m.user.id === v.userId);
               if (!member) return null;
               return (
-                <div key={v.userId} className="voice-user">
-                  <Avatar user={member.user} size={20} />
-                  <span>{memberName(server.id, member.user)}</span>
-                  <span className="voice-flags">{v.streaming && <span className="live">AO VIVO</span>}{v.video && <Video size={14} />}{v.deafened ? <HeadphoneOff size={14} /> : v.muted ? <MicOff size={14} /> : null}</span>
-                </div>
+                <VoiceUser key={v.userId} serverId={server.id} userId={v.userId} user={member.user}
+                  flags={<>{v.streaming && <span className="live">AO VIVO</span>}{v.video && <Video size={14} />}{v.deafened ? <HeadphoneOff size={14} /> : v.muted ? <MicOff size={14} /> : null}</>} />
               );
             })}
           </div>
@@ -126,16 +153,18 @@ function ServerSidebar({ server }: { server: Server }) {
 
   return (
     <>
-      <header className="sidebar-header clickable" onClick={() => setMenu(!menu)}>
-        <span className="server-title">{server.name}</span>{menu ? <X size={18} /> : <ChevronDown size={18} />}
-      </header>
-      {menu && (
-        <div className="dropdown" onClick={() => setMenu(false)}>
-          {menuItems.filter(([, , visible]) => visible).map(([label, action, , danger]) => (
-            <button key={label} className={danger ? 'danger' : ''} onClick={action}>{label}</button>
-          ))}
-        </div>
-      )}
+      <div ref={menuRef} className="sidebar-header-wrap">
+        <header className="sidebar-header clickable" onClick={() => setMenu(!menu)} onContextMenu={(e) => openMenu(e, <ServerMenu server={server} />)}>
+          <span className="server-title">{server.name}</span>{menu ? <X size={18} /> : <ChevronDown size={18} />}
+        </header>
+        {menu && (
+          <div className="dropdown" onClick={() => setMenu(false)}>
+            {menuItems.filter(([, , visible]) => visible).map(([label, action, , danger]) => (
+              <button key={label} className={danger ? 'danger' : ''} onClick={action}>{label}</button>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="sidebar-scroll">
         {childrenOf(null).map(renderChannel)}
         {categories.map((cat) => (

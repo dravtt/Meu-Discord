@@ -4,6 +4,8 @@ import type { Track } from 'livekit-client';
 import { useStore, findChannel, dmName } from '../lib/store';
 import { joinCall, leaveCall, toggleDeafen, toggleMute, toggleScreen, toggleVideo, useCall, type Tile } from '../lib/voice';
 import { has, P } from '../lib/permissions';
+import { useSpeaking } from '../lib/speaking';
+import { userMenuProps } from './ContextMenu';
 import { Avatar } from './Avatar';
 
 /** Tracks which element (if any) is fullscreen, so buttons can show the right icon. */
@@ -36,9 +38,9 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
   const canVideo = !channel?.serverId || has(channel?.permissions, P.VIDEO);
 
   // A new screen share takes the spotlight automatically, like most call apps.
-  const screenKeys = call.tiles.filter((t) => t.kind === 'screen').map((t) => t.key).join();
+  const screenKeys = call.tiles.filter((t) => t.screen).map((t) => t.key).join();
   useEffect(() => {
-    const firstScreen = call.tiles.find((t) => t.kind === 'screen' && !t.local) ?? call.tiles.find((t) => t.kind === 'screen');
+    const firstScreen = call.tiles.find((t) => t.screen && !t.local) ?? call.tiles.find((t) => t.screen);
     setFocusKey((k) => (k && call.tiles.some((t) => t.key === k) ? k : firstScreen?.key ?? null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenKeys]);
@@ -106,23 +108,33 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
 
 function CallTile({ tile, big, onFocus }: { tile: Tile; big?: boolean; onFocus: () => void }) {
   const voice = useStore((s) => s.voiceStates[tile.identity]);
+  const speaking = useSpeaking((s) => !!s[tile.identity]);
+  const channelServer = useStore((s) => (s.voiceStates[tile.identity]?.serverId ?? null));
   const ref = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreenElement();
   const isFull = !!fullscreen && fullscreen === ref.current;
-  const isScreen = tile.kind === 'screen';
-  const label = isScreen ? `Tela de ${tile.name}` : tile.name;
+  const main = tile.screen ?? tile.camera;
+  const isScreen = !!tile.screen;
 
   return (
-    <div ref={ref} className={`call-tile ${isScreen ? 'screen' : ''} ${tile.speaking ? 'speaking' : ''} ${big ? 'big' : ''}`}
+    <div ref={ref} className={`call-tile ${isScreen ? 'screen' : ''} ${speaking ? 'speaking' : ''} ${big ? 'big' : ''}`}
+      data-identity={tile.identity} {...userMenuProps(tile.identity, channelServer)}
       onClick={onFocus} onDoubleClick={() => toggleFullscreen(ref.current)}
       title={big ? 'Clique para voltar à grade, clique duas vezes para tela cheia' : 'Clique para destacar, clique duas vezes para tela cheia'}>
-      {tile.track
-        ? <VideoEl track={tile.track} fit={isScreen ? 'contain' : 'cover'} mirror={tile.local && !isScreen} />
+      {main
+        ? <VideoEl track={main} fit={isScreen ? 'contain' : 'cover'} mirror={tile.local && !isScreen} />
         : <div className="tile-avatar"><Avatar user={{ id: tile.identity, displayName: tile.name, avatarUrl: null }} size={big ? 96 : 72} /></div>}
+      {isScreen && (
+        <div className="tile-pip">
+          {tile.camera
+            ? <VideoEl track={tile.camera} fit="cover" mirror={tile.local} />
+            : <Avatar user={{ id: tile.identity, displayName: tile.name, avatarUrl: null }} size={big ? 48 : 32} />}
+        </div>
+      )}
       <span className="tile-name">
         {isScreen && <Monitor size={14} />}
-        {label}
-        {!isScreen && (voice?.deafened ? <HeadphoneOff size={14} className="tile-flag" /> : voice?.muted ? <MicOff size={14} className="tile-flag" /> : null)}
+        {tile.name}
+        {voice?.deafened ? <HeadphoneOff size={14} className="tile-flag" /> : voice?.muted ? <MicOff size={14} className="tile-flag" /> : null}
       </span>
       {isScreen && <span className="live tile-live">AO VIVO</span>}
       <button className="tile-full" title={isFull ? 'Sair da tela cheia' : 'Tela cheia'} onClick={(e) => { e.stopPropagation(); toggleFullscreen(ref.current); }}>

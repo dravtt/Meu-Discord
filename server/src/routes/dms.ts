@@ -13,7 +13,7 @@ dmsRouter.use(requireAuth);
 
 const MAX_GROUP = 10;
 
-async function dmPayload(channelId: string) {
+export async function dmPayload(channelId: string) {
   const c = await getChannel(channelId);
   const recipients = await query('SELECT user_id FROM dm_recipients WHERE channel_id = $1', [channelId]);
   return { ...serializeChannel(c), recipients: await Promise.all(recipients.map((r) => getPublicUser(r.user_id))) };
@@ -28,7 +28,7 @@ async function notifyRecipients(channelId: string, event = 'dm:update') {
 dmsRouter.get('/dms', async (req, res) => {
   const rows = await query(
     `SELECT c.id FROM channels c JOIN dm_recipients d ON d.channel_id = c.id
-     WHERE d.user_id = $1 ORDER BY coalesce(c.last_message_at, c.created_at) DESC`, [uid(req)]);
+     WHERE d.user_id = $1 AND NOT d.closed ORDER BY coalesce(c.last_message_at, c.created_at) DESC`, [uid(req)]);
   res.json(await Promise.all(rows.map((r) => dmPayload(r.id))));
 });
 
@@ -48,7 +48,10 @@ dmsRouter.post('/dms', async (req, res) => {
        JOIN dm_recipients a ON a.channel_id = c.id AND a.user_id = $1
        JOIN dm_recipients b ON b.channel_id = c.id AND b.user_id = $2
        WHERE c.type = 'dm'`, [uid(req), others[0]]);
-    if (existing) return res.json(await dmPayload(existing.id));
+    if (existing) {
+      await one('UPDATE dm_recipients SET closed = false WHERE channel_id = $1 AND user_id = $2', [existing.id, uid(req)]);
+      return res.json(await dmPayload(existing.id));
+    }
   } else {
     // Group DMs only with friends, as spam protection.
     const friends = await query("SELECT target_id FROM relationships WHERE user_id = $1 AND type = 'friend' AND target_id = ANY($2::uuid[])", [uid(req), others]);
@@ -82,6 +85,16 @@ dmsRouter.put('/dms/:channelId/recipients/:userId', async (req, res) => {
   await one('INSERT INTO dm_recipients (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [c.id, target]);
   emitToUser(target, 'dm:create', await dmPayload(c.id));
   res.json(await notifyRecipients(c.id));
+});
+
+/** Closes a 1:1 DM for you: it leaves your list until someone sends a new message. */
+dmsRouter.delete('/dms/:channelId', async (req, res) => {
+  const c = await getChannel(String(req.params.channelId));
+  if (c.type !== 'dm') throw badRequest('Para grupos, use sair do grupo');
+  const row = await one('UPDATE dm_recipients SET closed = true WHERE channel_id = $1 AND user_id = $2 RETURNING 1', [c.id, uid(req)]);
+  if (!row) throw notFound();
+  emitToUser(uid(req), 'dm:delete', { id: c.id });
+  res.status(204).end();
 });
 
 /** Leave a group DM (or remove someone, if you own it). 1:1 DMs are just closed client-side. */

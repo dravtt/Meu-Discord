@@ -9,6 +9,8 @@ import { Sidebar } from './components/Sidebar';
 import { MainPane } from './components/MainPane';
 import { ModalHost } from './components/Modal';
 import { IncomingCall } from './components/IncomingCall';
+import { ContextMenuHost } from './components/ContextMenu';
+import { installPushToTalk } from './lib/micGate';
 import { joinInviteFromUrl } from './components/modals/ServerModals';
 
 export function App() {
@@ -16,6 +18,7 @@ export function App() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => installPushToTalk(), []);
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
@@ -50,6 +53,7 @@ export function App() {
       <MainPane />
       <ModalHost />
       <IncomingCall />
+      <ContextMenuHost />
     </div>
   );
 }

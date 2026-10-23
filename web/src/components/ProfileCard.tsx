@@ -7,13 +7,14 @@ import { Avatar, STATUS_LABEL, colorFor } from './Avatar';
 import { Dialog, closeModal } from './Modal';
 
 export function ProfileCard({ userId, serverId }: { userId: string; serverId: string | null }) {
-  const [user, setUser] = useState<(User & { mutualServerIds: string[] }) | null>(null);
+  const [user, setUser] = useState<(User & { mutualServerIds: string[]; note?: string }) | null>(null);
+  const [note, setNote] = useState('');
   const me = useStore((s) => s.me);
   const relationship = useStore((s) => s.relationships.find((r) => r.user.id === userId));
   const presence = useStore((s) => s.presence[userId]);
   const server = useStore((s) => (serverId ? s.servers[serverId] : undefined));
   const servers = useStore((s) => s.servers);
-  useEffect(() => { api(`/users/${userId}`).then(setUser).catch(() => closeModal()); }, [userId]);
+  useEffect(() => { api(`/users/${userId}`).then((u) => { setUser(u); setNote(u.note ?? ''); }).catch(() => closeModal()); }, [userId]);
   if (!user) return <Dialog title="Perfil"><p className="muted">Carregando…</p></Dialog>;
 
   const member = server?.members.find((m) => m.user.id === userId);
@@ -44,6 +45,12 @@ export function ProfileCard({ userId, serverId }: { userId: string; serverId: st
         {!isMe && user.mutualServerIds.length > 0 && (
           <><h4>Servidores em comum</h4><p className="muted">{user.mutualServerIds.map((id) => servers[id]?.name).filter(Boolean).join(', ')}</p></>
         )}
+        {!isMe && <>
+          <h4>Nota</h4>
+          <textarea className="note-input" rows={2} maxLength={256} placeholder="Clique para adicionar uma nota (só você vê)" value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onBlur={() => { if (note !== (user.note ?? '')) void api(`/users/${userId}/note`, { method: 'PUT', body: { note } }).then(() => setUser({ ...user, note })); }} />
+        </>}
         <h4>Membro do Nexo desde</h4><p className="muted">{new Date((user as any).createdAt).toLocaleDateString('pt-BR')}</p>
         {!isMe && (
           <div className="row gap">
