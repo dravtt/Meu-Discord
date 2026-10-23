@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, set } from '../lib/store';
 import { assetUrl } from '../lib/api';
@@ -30,7 +31,7 @@ export function ServerRail() {
         );
       })}
       <RailItem label="Adicionar um servidor" onClick={() => openModal(<AddServerModal />)} className="add">
-        <span>+</span>
+        <Plus size={24} />
       </RailItem>
     </nav>
   );

@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight, Hash, HeadphoneOff, MicOff, Plus, Settings, Users, Video, Volume2, X } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useState } from 'react';
 import { useStore, set, dmName, memberName } from '../lib/store';
@@ -38,11 +39,11 @@ function HomeSidebar() {
       <header className="sidebar-header"><span className="search-hint">Conversas</span></header>
       <div className="sidebar-scroll">
         <button className={`nav-item ${!activeDm ? 'active' : ''}`} onClick={() => set({ view: { kind: 'home' } })}>
-          <span className="nav-icon">👥</span> Amigos {pending > 0 && <span className="badge inline">{pending}</span>}
+          <Users size={20} className="nav-icon" /> Amigos {pending > 0 && <span className="badge inline">{pending}</span>}
         </button>
         <div className="section-title">
           <span>Mensagens diretas</span>
-          <button className="icon-btn small" title="Criar grupo" onClick={() => openModal(<NewGroupModal />)}>+</button>
+          <button className="icon-btn small" title="Criar grupo" onClick={() => openModal(<NewGroupModal />)}><Plus size={16} /></button>
         </div>
         {dms.map((dm) => {
           const other = dm.type === 'dm' ? dm.recipients?.find((u) => u.id !== me?.id) : undefined;
@@ -96,12 +97,12 @@ function ServerSidebar({ server }: { server: Server }) {
             if (c.type === 'voice') { set({ view: { kind: 'server', serverId: server.id, channelId: c.id }, openThreadId: null }); void joinCall(c.id); }
             else set({ view: { kind: 'server', serverId: server.id, channelId: c.id }, openThreadId: null });
           }}>
-            <span className="channel-icon">{c.type === 'voice' ? '🔊' : '#'}</span>
+            <span className="channel-icon">{c.type === 'voice' ? <Volume2 size={18} /> : <Hash size={18} />}</span>
             <span className="channel-name">{c.name}</span>
             {!!rs?.mentions && <span className="badge inline">{rs.mentions}</span>}
           </button>
           {has(c.permissions, P.MANAGE_CHANNELS) && (
-            <button className="icon-btn small hover-only" title="Editar canal" onClick={() => openModal(<ChannelSettings channelId={c.id} serverId={server.id} />)}>⚙</button>
+            <button className="icon-btn small hover-only" title="Editar canal" onClick={() => openModal(<ChannelSettings channelId={c.id} serverId={server.id} />)}><Settings size={15} /></button>
           )}
         </div>
         {inVoice.length > 0 && (
@@ -113,7 +114,7 @@ function ServerSidebar({ server }: { server: Server }) {
                 <div key={v.userId} className="voice-user">
                   <Avatar user={member.user} size={20} />
                   <span>{memberName(server.id, member.user)}</span>
-                  <span className="voice-flags">{v.streaming && <span className="live">AO VIVO</span>}{v.video && '📷'}{v.deafened ? '🔇' : v.muted ? '🎙️̸' : ''}</span>
+                  <span className="voice-flags">{v.streaming && <span className="live">AO VIVO</span>}{v.video && <Video size={14} />}{v.deafened ? <HeadphoneOff size={14} /> : v.muted ? <MicOff size={14} /> : null}</span>
                 </div>
               );
             })}
@@ -126,7 +127,7 @@ function ServerSidebar({ server }: { server: Server }) {
   return (
     <>
       <header className="sidebar-header clickable" onClick={() => setMenu(!menu)}>
-        <span className="server-title">{server.name}</span><span>{menu ? '✕' : '⌄'}</span>
+        <span className="server-title">{server.name}</span>{menu ? <X size={18} /> : <ChevronDown size={18} />}
       </header>
       {menu && (
         <div className="dropdown" onClick={() => setMenu(false)}>
@@ -141,10 +142,10 @@ function ServerSidebar({ server }: { server: Server }) {
           <div key={cat.id} className="category">
             <div className="section-title">
               <button className="category-btn" onClick={() => setCollapsed({ ...collapsed, [cat.id]: !collapsed[cat.id] })}>
-                {collapsed[cat.id] ? '›' : '⌄'} {cat.name}
+                {collapsed[cat.id] ? <ChevronRight size={12} /> : <ChevronDown size={12} />} {cat.name}
               </button>
               {has(server.permissions, P.MANAGE_CHANNELS) && (
-                <button className="icon-btn small" title="Criar canal" onClick={() => openModal(<CreateChannelModal serverId={server.id} parentId={cat.id} />)}>+</button>
+                <button className="icon-btn small" title="Criar canal" onClick={() => openModal(<CreateChannelModal serverId={server.id} parentId={cat.id} />)}><Plus size={16} /></button>
               )}
             </div>
             {childrenOf(cat.id).filter((c) => !collapsed[cat.id] || c.id === activeId || readStates[c.id]?.unread).map(renderChannel)}

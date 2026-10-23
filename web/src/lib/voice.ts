@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import { Room, RoomEvent, Track, type Participant } from 'livekit-client';
+import { AudioPresets, Room, RoomEvent, ScreenSharePresets, Track, VideoPresets, type Participant } from 'livekit-client';
 import { api } from './api';
 import { socket } from './socket';
 
-export interface Tile { identity: string; name: string; speaking: boolean; video?: MediaStreamTrack; screen?: MediaStreamTrack }
+/** One box in the call grid: a person (camera or avatar) or a screen someone is sharing. */
+export interface Tile { key: string; identity: string; name: string; kind: 'person' | 'screen'; local: boolean; speaking: boolean; track?: Track }
 
 interface CallState {
   channelId: string | null;
@@ -23,16 +24,18 @@ const audioEls = new Map<string, HTMLMediaElement>();
 
 function syncTiles() {
   if (!room) return useCall.setState({ tiles: [] });
-  const all: Participant[] = [room.localParticipant, ...room.remoteParticipants.values()];
-  useCall.setState({
-    tiles: all.map((p) => ({
-      identity: p.identity,
-      name: p.name || p.identity,
-      speaking: p.isSpeaking,
-      video: p.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack,
-      screen: p.getTrackPublication(Track.Source.ScreenShare)?.track?.mediaStreamTrack,
-    })),
-  });
+  const local = room.localParticipant;
+  const all: Participant[] = [local, ...room.remoteParticipants.values()];
+  const tiles: Tile[] = [];
+  for (const p of all) {
+    const base = { identity: p.identity, name: p.name || p.identity, local: p === local };
+    const cam = p.getTrackPublication(Track.Source.Camera);
+    tiles.push({ ...base, key: `${p.identity}:person`, kind: 'person', speaking: p.isSpeaking, track: cam && !cam.isMuted ? cam.track : undefined });
+    const share = p.getTrackPublication(Track.Source.ScreenShare);
+    const screen = share && !share.isMuted ? share.track : undefined;
+    if (screen) tiles.push({ ...base, key: `${p.identity}:screen`, kind: 'screen', speaking: false, track: screen });
+  }
+  useCall.setState({ tiles });
 }
 
 function sendState() {
@@ -46,7 +49,20 @@ export async function joinCall(channelId: string) {
   useCall.setState({ channelId, connecting: true, error: null, video: false, screen: false });
   try {
     const { url, token, canSpeak } = await api<{ url: string; token: string; canSpeak: boolean }>(`/channels/${channelId}/voice`, { method: 'POST' });
-    room = new Room({ adaptiveStream: true, dynacast: true });
+    room = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+      audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      videoCaptureDefaults: { resolution: VideoPresets.h720.resolution },
+      publishDefaults: {
+        audioPreset: AudioPresets.musicHighQuality,
+        dtx: true,
+        red: true,
+        videoEncoding: VideoPresets.h720.encoding,
+        videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
+        screenShareEncoding: ScreenSharePresets.h1080fps30.encoding,
+      },
+    });
     room
       .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
         if (track.kind === Track.Kind.Audio) {
@@ -67,6 +83,8 @@ export async function joinCall(channelId: string) {
       .on(RoomEvent.ParticipantConnected, syncTiles)
       .on(RoomEvent.ParticipantDisconnected, syncTiles)
       .on(RoomEvent.LocalTrackPublished, syncTiles)
+      .on(RoomEvent.TrackMuted, syncTiles)
+      .on(RoomEvent.TrackUnmuted, syncTiles)
       .on(RoomEvent.LocalTrackUnpublished, () => { useCall.setState({ screen: !!room?.localParticipant.isScreenShareEnabled }); sendState(); syncTiles(); })
       .on(RoomEvent.ActiveSpeakersChanged, syncTiles)
       .on(RoomEvent.Disconnected, () => { if (room) void leaveCall(); });
@@ -130,7 +148,13 @@ export async function toggleScreen() {
   if (!room) return;
   const screen = !useCall.getState().screen;
   try {
-    await room.localParticipant.setScreenShareEnabled(screen, { audio: true });
+    await room.localParticipant.setScreenShareEnabled(screen, {
+      audio: true,
+      resolution: ScreenSharePresets.h1080fps30.resolution,
+      contentHint: 'detail',
+      selfBrowserSurface: 'exclude',
+      surfaceSwitching: 'include',
+    });
     useCall.setState({ screen });
   } catch { /* user cancelled the picker */ }
   sendState();

@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { create } from 'zustand';
 import { useEffect, type ReactNode } from 'react';
 
@@ -20,7 +21,7 @@ export function ModalHost() {
 export function Dialog({ title, children, footer, wide }: { title: string; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   return (
     <div className={`dialog ${wide ? 'wide' : ''}`} role="dialog" aria-label={title}>
-      <header><h2>{title}</h2><button className="icon-btn" onClick={closeModal} aria-label="Fechar">✕</button></header>
+      <header><h2>{title}</h2><button className="icon-btn" onClick={closeModal} aria-label="Fechar"><X size={20} /></button></header>
       <div className="dialog-body">{children}</div>
       {footer && <footer>{footer}</footer>}
     </div>

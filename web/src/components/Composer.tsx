@@ -1,3 +1,4 @@
+import { FileText, CirclePlus, Smile, X } from 'lucide-react';
 import { useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { useStore, set, get, addMessage, memberName } from '../lib/store';
 import { api } from '../lib/api';
@@ -119,27 +120,27 @@ export function Composer({ channel, canAttach, placeholder }: { channel: Channel
       {replyTo && (
         <div className="reply-bar">
           Respondendo a <strong>{memberName(channel.serverId, replyTo.author)}</strong>
-          <button className="icon-btn small" onClick={() => set((s) => ({ replyTo: { ...s.replyTo, [channel.id]: null } }))}>✕</button>
+          <button className="icon-btn small" onClick={() => set((s) => ({ replyTo: { ...s.replyTo, [channel.id]: null } }))}><X size={14} /></button>
         </div>
       )}
       {files.length > 0 && (
         <div className="file-tray">
           {files.map((f, i) => (
             <div key={i} className="file-chip">
-              {f.type.startsWith('image/') ? <img src={URL.createObjectURL(f)} alt="" /> : <span>📄</span>}
+              {f.type.startsWith('image/') ? <img src={URL.createObjectURL(f)} alt="" /> : <FileText size={40} />}
               <small>{f.name}</small>
-              <button className="icon-btn small" onClick={() => setFiles(files.filter((_, j) => j !== i))}>✕</button>
+              <button className="icon-btn small" onClick={() => setFiles(files.filter((_, j) => j !== i))}><X size={14} /></button>
             </div>
           ))}
         </div>
       )}
       {error && <div className="composer-error">{error}</div>}
       <div className="composer">
-        {canAttach && <button className="icon-btn" title="Enviar arquivo" onClick={() => fileInput.current?.click()}>＋</button>}
+        {canAttach && <button className="icon-btn" title="Enviar arquivo" onClick={() => fileInput.current?.click()}><CirclePlus size={22} /></button>}
         <input ref={fileInput} type="file" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }} />
         <textarea ref={input} rows={1} value={text} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown} onPaste={onPaste} maxLength={4000} />
         <div className="picker-anchor">
-          <button className="icon-btn" title="Emoji" onClick={() => setPicker(!picker)}>😊</button>
+          <button className="icon-btn" title="Emoji" onClick={() => setPicker(!picker)}><Smile size={22} /></button>
           {picker && <EmojiPicker onPick={(e) => { setText((t) => t + e); input.current?.focus(); }} onClose={() => setPicker(false)} up />}
         </div>
       </div>

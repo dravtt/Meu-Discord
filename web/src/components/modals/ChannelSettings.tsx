@@ -1,3 +1,4 @@
+import { Check, Slash, X } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '../../lib/api';
 import { useStore } from '../../lib/store';
@@ -49,7 +50,7 @@ export function ChannelSettings({ channelId, serverId }: { channelId: string; se
         <button className="danger" onClick={() => confirmDialog('Excluir canal', `Excluir "${channel.name}"? As mensagens serão perdidas.`, 'Excluir', async () => { await api(`/channels/${channel.id}`, { method: 'DELETE' }); })}>Excluir canal</button>
       </nav>
       <div className="settings-body">
-        <button className="icon-btn close" onClick={closeModal}>✕</button>
+        <button className="icon-btn close" onClick={closeModal}><X size={20} /></button>
         {tab === 'overview' ? (
           <section>
             <h2>Visão geral</h2>
@@ -70,9 +71,9 @@ export function ChannelSettings({ channelId, serverId }: { channelId: string; se
               <div key={flag} className="perm-row">
                 <span>{label}</span>
                 <div className="tri">
-                  <button className={stateOf(flag) === 'deny' ? 'deny on' : 'deny'} onClick={() => setState(flag, 'deny')}>✕</button>
-                  <button className={stateOf(flag) === 'inherit' ? 'on' : ''} onClick={() => setState(flag, 'inherit')}>/</button>
-                  <button className={stateOf(flag) === 'allow' ? 'allow on' : 'allow'} onClick={() => setState(flag, 'allow')}>✓</button>
+                  <button className={stateOf(flag) === 'deny' ? 'deny on' : 'deny'} onClick={() => setState(flag, 'deny')}><X size={16} /></button>
+                  <button className={stateOf(flag) === 'inherit' ? 'on' : ''} onClick={() => setState(flag, 'inherit')}><Slash size={14} /></button>
+                  <button className={stateOf(flag) === 'allow' ? 'allow on' : 'allow'} onClick={() => setState(flag, 'allow')}><Check size={16} /></button>
                 </div>
               </div>
             ))}

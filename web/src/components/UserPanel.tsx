@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useStore, set, findChannel } from '../lib/store';
 import { api } from '../lib/api';
-import { leaveCall, toggleDeafen, toggleMute, useCall } from '../lib/voice';
+import { Headphones, HeadphoneOff, Mic, MicOff, MonitorOff, MonitorUp, PhoneOff, Settings, Signal, Video, VideoOff } from 'lucide-react';
+import { leaveCall, toggleDeafen, toggleMute, toggleScreen, toggleVideo, useCall } from '../lib/voice';
 import type { Status } from '../lib/types';
 import { Avatar, STATUS_LABEL } from './Avatar';
 import { openModal } from './Modal';
@@ -36,9 +37,9 @@ export function UserPanel() {
           <small>{me.customStatus || STATUS_LABEL[me.status]}</small>
         </span>
       </button>
-      <button className={`icon-btn ${muted ? 'off' : ''}`} title={muted ? 'Ativar microfone' : 'Silenciar'} onClick={toggleMute}>{muted ? '🎙️̸' : '🎙️'}</button>
-      <button className={`icon-btn ${deafened ? 'off' : ''}`} title={deafened ? 'Ativar áudio' : 'Desativar áudio'} onClick={toggleDeafen}>{deafened ? '🔇' : '🎧'}</button>
-      <button className="icon-btn" title="Configurações" onClick={() => openModal(<UserSettings />)}>⚙</button>
+      <button className={`icon-btn ${muted ? 'off' : ''}`} title={muted ? 'Ativar microfone' : 'Silenciar'} onClick={toggleMute}>{muted ? <MicOff size={18} /> : <Mic size={18} />}</button>
+      <button className={`icon-btn ${deafened ? 'off' : ''}`} title={deafened ? 'Ativar áudio' : 'Desativar áudio'} onClick={toggleDeafen}>{deafened ? <HeadphoneOff size={18} /> : <Headphones size={18} />}</button>
+      <button className="icon-btn" title="Configurações" onClick={() => openModal(<UserSettings />)}><Settings size={18} /></button>
     </div>
   );
 }
@@ -47,17 +48,31 @@ export function VoiceBar() {
   const channelId = useCall((s) => s.channelId);
   const connecting = useCall((s) => s.connecting);
   const error = useCall((s) => s.error);
-  useStore((s) => s.servers);
+  const video = useCall((s) => s.video);
+  const screen = useCall((s) => s.screen);
+  const servers = useStore((s) => s.servers);
   if (!channelId && !error) return null;
   const channel = findChannel(channelId ?? undefined);
+  const server = channel?.serverId ? servers[channel.serverId] : undefined;
+  const where = channel ? (server ? `${channel.name} / ${server.name}` : channel.name || 'Chamada') : '';
+  const open = () => channel && set(channel.serverId ? { view: { kind: 'server', serverId: channel.serverId, channelId: channel.id } } : { view: { kind: 'home', dmId: channel.id } });
+
   return (
     <div className="voice-bar">
-      <div>
-        <strong className={error ? 'error' : 'ok'}>{error ? 'Falha na voz' : connecting ? 'Conectando…' : 'Voz conectada'}</strong>
-        <small>{error ?? (channel ? channel.name || 'Chamada' : '')}</small>
+      <div className="voice-bar-top">
+        <Signal size={18} className={error ? 'error' : connecting ? 'warn' : 'ok'} />
+        <button className="voice-bar-info" onClick={open} title="Abrir chamada">
+          <strong className={error ? 'error' : connecting ? 'warn' : 'ok'}>{error ? 'Falha na voz' : connecting ? 'Conectando…' : 'Voz conectada'}</strong>
+          <small>{error ?? where}</small>
+        </button>
+        <button className="icon-btn danger" title="Desconectar" onClick={() => (error && !channelId ? useCall.setState({ error: null }) : leaveCall())}><PhoneOff size={18} /></button>
       </div>
-      {channel && <button className="icon-btn" title="Abrir" onClick={() => set(channel.serverId ? { view: { kind: 'server', serverId: channel.serverId, channelId: channel.id } } : { view: { kind: 'home', dmId: channel.id } })}>↗</button>}
-      <button className="icon-btn danger" title="Desconectar" onClick={() => (error && !channelId ? useCall.setState({ error: null }) : leaveCall())}>✆</button>
+      {channelId && (
+        <div className="voice-bar-actions">
+          <button className={video ? 'on' : ''} title={video ? 'Desligar câmera' : 'Ligar câmera'} onClick={toggleVideo}>{video ? <Video size={18} /> : <VideoOff size={18} />}</button>
+          <button className={screen ? 'on' : ''} title={screen ? 'Parar de transmitir' : 'Compartilhar tela'} onClick={toggleScreen}>{screen ? <MonitorOff size={18} /> : <MonitorUp size={18} />}</button>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,3 +5,4 @@ server/uploads
 desktop/out
 *.log
 test-uploads
+*.tsbuildinfo

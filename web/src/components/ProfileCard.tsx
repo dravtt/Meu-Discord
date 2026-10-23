@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useStore, set, memberName } from '../lib/store';
 import { api } from '../lib/api';
@@ -30,7 +31,7 @@ export function ProfileCard({ userId, serverId }: { userId: string; serverId: st
       <div className="profile-banner" style={{ background: colorFor(user.id) }} />
       <div className="profile-head">
         <Avatar user={user} size={80} showStatus />
-        <button className="icon-btn" onClick={closeModal}>✕</button>
+        <button className="icon-btn" onClick={closeModal}><X size={20} /></button>
       </div>
       <div className="dialog-body">
         <h2>{serverId ? memberName(serverId, user) : user.displayName}</h2>

@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { useStore, memberName } from '../../lib/store';
@@ -38,7 +39,7 @@ export function ServerSettings({ serverId }: { serverId: string }) {
         )}
       </nav>
       <div className="settings-body">
-        <button className="icon-btn close" onClick={closeModal}>✕</button>
+        <button className="icon-btn close" onClick={closeModal}><X size={20} /></button>
         {current === 'overview' && <Overview server={server} />}
         {current === 'roles' && <Roles server={server} />}
         {current === 'members' && <Members server={server} />}
@@ -153,7 +154,7 @@ function Members({ server }: { server: Server }) {
             <div className="role-chips">
               {roles.filter((r) => m.roleIds.includes(r.id)).map((r) => (
                 <span key={r.id} className="role-chip"><i style={{ background: r.color }} />{r.name}
-                  {canRoles && <button onClick={() => act(() => api(`/servers/${server.id}/members/${m.user.id}/roles/${r.id}`, { method: 'DELETE' }))}>✕</button>}
+                  {canRoles && <button onClick={() => act(() => api(`/servers/${server.id}/members/${m.user.id}/roles/${r.id}`, { method: 'DELETE' }))}><X size={12} /></button>}
                 </span>
               ))}
               {canRoles && roles.some((r) => !m.roleIds.includes(r.id)) && (

@@ -1,3 +1,4 @@
+import { Check, MessageCircle, Users, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useStore, set } from '../lib/store';
 import { api } from '../lib/api';
@@ -27,7 +28,7 @@ export function FriendsView() {
   return (
     <section className="chat friends">
       <header className="chat-header">
-        <span className="channel-icon">👥</span><h3>Amigos</h3>
+        <span className="channel-icon"><Users size={20} /></span><h3>Amigos</h3>
         <nav className="tabs">
           {tabs.map(([id, label]) => <button key={id} className={`${tab === id ? 'active' : ''} ${id === 'add' ? 'add' : ''}`} onClick={() => setTab(id)}>{label}</button>)}
         </nav>
@@ -59,9 +60,9 @@ function FriendRow({ r }: { r: Relationship }) {
           <small className="muted">{r.type === 'incoming' ? 'Pedido de amizade recebido' : r.type === 'outgoing' ? 'Pedido de amizade enviado' : r.type === 'blocked' ? 'Bloqueado' : presence?.customStatus || STATUS_LABEL[presence?.status ?? 'offline']}</small></span>
       </button>
       <div className="row gap">
-        {r.type === 'friend' && <button className="icon-btn" title="Mensagem" onClick={message}>💬</button>}
-        {r.type === 'incoming' && <button className="icon-btn ok" title="Aceitar" onClick={() => api(`/relationships/${r.user.id}`, { method: 'PUT' })}>✓</button>}
-        <button className="icon-btn danger" title={r.type === 'friend' ? 'Remover amigo' : r.type === 'blocked' ? 'Desbloquear' : 'Recusar'} onClick={() => api(`/relationships/${r.user.id}`, { method: 'DELETE' })}>✕</button>
+        {r.type === 'friend' && <button className="icon-btn" title="Mensagem" onClick={message}><MessageCircle size={18} /></button>}
+        {r.type === 'incoming' && <button className="icon-btn ok" title="Aceitar" onClick={() => api(`/relationships/${r.user.id}`, { method: 'PUT' })}><Check size={18} /></button>}
+        <button className="icon-btn danger" title={r.type === 'friend' ? 'Remover amigo' : r.type === 'blocked' ? 'Desbloquear' : 'Recusar'} onClick={() => api(`/relationships/${r.user.id}`, { method: 'DELETE' })}><X size={18} /></button>
       </div>
     </div>
   );

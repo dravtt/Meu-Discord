@@ -1,3 +1,4 @@
+import { AtSign, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore, set, get, dmName, memberName, memberColor, findChannel } from '../lib/store';
 import { api, assetUrl } from '../lib/api';
@@ -74,7 +75,7 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
   };
 
   const title = isDm ? dmName(channel, me?.id) : channel.name;
-  const icon = isThread ? '🧵' : isDm ? '@' : '#';
+  const icon = isThread ? <MessagesSquare size={20} /> : isDm ? <AtSign size={20} /> : <Hash size={20} />;
 
   return (
     <section className="chat">
@@ -83,23 +84,23 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
         <h3>{title}</h3>
         {channel.topic && <span className="topic" title={channel.topic}>{channel.topic}</span>}
         <div className="header-actions">
-          {isDm && callChannel !== channel.id && <button className="icon-btn" title="Iniciar chamada" onClick={() => joinCall(channel.id)}>📞</button>}
-          {!isThread && <button className="icon-btn" title="Mensagens fixadas" onClick={() => openModal(<PinsModal channel={channel} />)}>📌</button>}
-          {!isThread && !isDm && <button className="icon-btn" title="Tópicos" onClick={() => openModal(<ThreadsModal channel={channel} />)}>🧵</button>}
-          {!isThread && !isDm && <button className={`icon-btn ${showMembers ? 'on' : ''}`} title="Lista de membros" onClick={() => set({ showMembers: !showMembers })}>👥</button>}
+          {isDm && callChannel !== channel.id && <button className="icon-btn" title="Iniciar chamada" onClick={() => joinCall(channel.id)}><Phone size={20} /></button>}
+          {!isThread && <button className="icon-btn" title="Mensagens fixadas" onClick={() => openModal(<PinsModal channel={channel} />)}><Pin size={20} /></button>}
+          {!isThread && !isDm && <button className="icon-btn" title="Tópicos" onClick={() => openModal(<ThreadsModal channel={channel} />)}><MessagesSquare size={20} /></button>}
+          {!isThread && !isDm && <button className={`icon-btn ${showMembers ? 'on' : ''}`} title="Lista de membros" onClick={() => set({ showMembers: !showMembers })}><Users size={20} /></button>}
           {!isThread && !isDm && channel.serverId && (
             <form onSubmit={(e) => { e.preventDefault(); if (search.trim()) openModal(<SearchModal serverId={channel.serverId!} query={search.trim()} />); }}>
               <input className="search" placeholder="Buscar" value={search} onChange={(e) => setSearch(e.target.value)} />
             </form>
           )}
-          {onClose && <button className="icon-btn" title="Fechar" onClick={onClose}>✕</button>}
+          {onClose && <button className="icon-btn" title="Fechar" onClick={onClose}><X size={20} /></button>}
         </div>
       </header>
       <div className="messages" ref={scroller} onScroll={onScroll}>
         {loaded && !hasMore && (
           <div className="channel-start">
             <div className="start-icon">{icon}</div>
-            <h2>{isDm ? title : `Bem-vindo a ${icon}${title}!`}</h2>
+            <h2>{isDm ? title : `Bem-vindo a ${isThread ? "" : "#"}${title}!`}</h2>
             <p className="muted">{isDm ? 'Este é o começo da sua conversa.' : 'Este é o começo deste canal.'}</p>
           </div>
         )}
@@ -109,7 +110,7 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
       </div>
       <TypingIndicator channel={channel} />
       {has(perms, P.SEND_MESSAGES)
-        ? <Composer channel={channel} canAttach={has(perms, P.ATTACH_FILES)} placeholder={`Conversar em ${icon}${title}`} />
+        ? <Composer channel={channel} canAttach={has(perms, P.ATTACH_FILES)} placeholder={`Conversar em ${isDm ? "@" : isThread ? "" : "#"}${title}`} />
         : <div className="composer disabled">Você não tem permissão para enviar mensagens aqui.</div>}
     </section>
   );
@@ -172,7 +173,7 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
               <div className="content">
                 {renderContent(m.content, serverId, openChannel)}
                 {m.editedAt && <span className="edited">(editado)</span>}
-                {m.pinned && <span className="edited">📌</span>}
+                {m.pinned && <span className="edited pinned-flag" title="Fixada"><Pin size={12} /></span>}
               </div>
             )}
             {m.attachments.map((a) => <AttachmentView key={a.id} a={a} />)}
@@ -189,15 +190,15 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
           </div>
           {!m.pending && (
             <div className="message-actions">
-              {has(perms, P.ADD_REACTIONS) && <button title="Reagir" onClick={() => setPicker(!picker)}>😊</button>}
-              {has(perms, P.SEND_MESSAGES) && <button title="Responder" onClick={() => set((s) => ({ replyTo: { ...s.replyTo, [channel.id]: m } }))}>↩</button>}
-              {channel.type === 'text' && !m.threadId && has(perms, P.CREATE_THREADS) && <button title="Criar tópico" onClick={() => openModal(<NewThreadModal channel={channel} message={m} />)}>🧵</button>}
-              {(isDm || canManage) && <button title={m.pinned ? 'Desafixar' : 'Fixar'} onClick={() => api(`/channels/${channel.id}/pins/${m.id}`, { method: m.pinned ? 'DELETE' : 'PUT' })}>📌</button>}
-              {isMine && <button title="Editar" onClick={() => set({ editing: m.id })}>✎</button>}
+              {has(perms, P.ADD_REACTIONS) && <button title="Reagir" onClick={() => setPicker(!picker)}><SmilePlus size={18} /></button>}
+              {has(perms, P.SEND_MESSAGES) && <button title="Responder" onClick={() => set((s) => ({ replyTo: { ...s.replyTo, [channel.id]: m } }))}><Reply size={18} /></button>}
+              {channel.type === 'text' && !m.threadId && has(perms, P.CREATE_THREADS) && <button title="Criar tópico" onClick={() => openModal(<NewThreadModal channel={channel} message={m} />)}><MessagesSquare size={18} /></button>}
+              {(isDm || canManage) && <button title={m.pinned ? 'Desafixar' : 'Fixar'} onClick={() => api(`/channels/${channel.id}/pins/${m.id}`, { method: m.pinned ? 'DELETE' : 'PUT' })}><Pin size={18} /></button>}
+              {isMine && <button title="Editar" onClick={() => set({ editing: m.id })}><Pencil size={18} /></button>}
               {(isMine || canManage) && <button title="Apagar" className="danger" onClick={(e) => {
                 const del = () => api(`/channels/${channel.id}/messages/${m.id}`, { method: 'DELETE' });
                 if (e.shiftKey) void del(); else confirmDialog('Apagar mensagem', 'Tem certeza que quer apagar esta mensagem?', 'Apagar', del);
-              }}>🗑</button>}
+              }}><Trash2 size={18} /></button>}
               {picker && <EmojiPicker onPick={(e) => { react(e); setPicker(false); }} onClose={() => setPicker(false)} />}
             </div>
           )}
@@ -214,7 +215,7 @@ function AttachmentView({ a }: { a: Message['attachments'][number] }) {
   if (a.contentType.startsWith('audio/')) return <audio src={url} controls />;
   return (
     <a className="attachment-file" href={url} target="_blank" rel="noreferrer" download={a.filename}>
-      <span>📄</span><span><strong>{a.filename}</strong><small>{(a.size / 1024).toFixed(1)} KB</small></span>
+      <FileText size={28} /><span><strong>{a.filename}</strong><small>{(a.size / 1024).toFixed(1)} KB</small></span>
     </a>
   );
 }
@@ -224,7 +225,7 @@ function ThreadLink({ threadId }: { threadId: string }) {
   useEffect(() => {
     if (!thread) api<Channel>(`/channels/${threadId}`).then((t) => set((s) => ({ threads: { ...s.threads, [t.id]: t } }))).catch(() => {});
   }, [threadId, thread]);
-  return <button className="thread-link" onClick={() => set({ openThreadId: threadId })}>🧵 {thread?.name ?? 'Tópico'} ›</button>;
+  return <button className="thread-link" onClick={() => set({ openThreadId: threadId })}><MessagesSquare size={14} /> {thread?.name ?? 'Tópico'} ›</button>;
 }
 
 function EditBox({ message }: { message: Message }) {
@@ -311,9 +312,9 @@ function ThreadsModal({ channel }: { channel: Channel }) {
   useEffect(() => { api<Channel[]>(`/channels/${channel.id}/threads`).then(setThreads).catch(() => setThreads([])); }, [channel.id]);
   return (
     <Dialog title={`Tópicos em #${channel.name}`}>
-      {!threads ? <p className="muted">Carregando…</p> : threads.length === 0 ? <p className="muted">Nenhum tópico ainda. Passe o mouse em uma mensagem e clique em 🧵.</p> :
+      {!threads ? <p className="muted">Carregando…</p> : threads.length === 0 ? <p className="muted">Nenhum tópico ainda. Passe o mouse em uma mensagem e clique no ícone de tópico.</p> :
         threads.map((t) => (
-          <button key={t.id} className="list-row" onClick={() => { set((s) => ({ threads: { ...s.threads, [t.id]: t }, openThreadId: t.id })); closeModal(); }}>🧵 {t.name}</button>
+          <button key={t.id} className="list-row" onClick={() => { set((s) => ({ threads: { ...s.threads, [t.id]: t }, openThreadId: t.id })); closeModal(); }}><MessagesSquare size={16} /> {t.name}</button>
         ))}
     </Dialog>
   );

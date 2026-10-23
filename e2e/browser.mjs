@@ -16,7 +16,7 @@ async function register(page, username, display) {
   await page.getByLabel('Nome de usuário').fill(username);
   await page.getByLabel('Nome de exibição').fill(display);
   await page.getByLabel('Senha').fill('senha-forte-123');
-  await page.getByRole('button', { name: 'Continuar' }).click();
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await page.getByText('Amigos').first().waitFor();
 }
 const step = async (label, fn) => { process.stdout.write(`- ${label}… `); await fn(); console.log('ok'); };
@@ -50,7 +50,7 @@ await step('Ana gera convite', async () => {
 await step('Bia se cadastra e aceita o convite pelo link', async () => {
   await register(bia, 'bia', 'Bia');
   await bia.goto(link.replace('http://localhost', 'http://127.0.0.1'));
-  await bia.getByRole('button', { name: 'Aceitar convite' }).click();
+  await bia.getByRole('button', { name: 'Aceitar convite', exact: true }).click();
   await bia.locator('.message .content', { hasText: 'Bem-vindos' }).waitFor();
 });
 await step('Ana vê Bia na lista de membros (tempo real)', () => ana.locator('.member-list', { hasText: 'Bia' }).waitFor());
@@ -84,15 +84,15 @@ await ana.screenshot({ path: `${SHOTS}/03-chat.png` });
 await step('Ana cria canal e cargo com cor', async () => {
   await ana.locator('.sidebar-header').click();
   await ana.getByText('Configurações do servidor').click();
-  await ana.getByRole('button', { name: 'Cargos' }).click();
-  await ana.getByRole('button', { name: 'Criar' }).click();
+  await ana.getByRole('button', { name: 'Cargos', exact: true }).click();
+  await ana.getByRole('button', { name: 'Criar', exact: true }).click();
   await ana.getByLabel('Nome', { exact: true }).fill('Moderação');
   await ana.getByLabel('Mostrar membros com este cargo separadamente').check();
   await ana.getByLabel('Gerenciar mensagens').check();
-  await ana.getByRole('button', { name: 'Salvar alterações' }).click();
+  await ana.getByRole('button', { name: 'Salvar alterações', exact: true }).click();
   await ana.locator('.role-list', { hasText: 'Moderação' }).waitFor();
   await ana.screenshot({ path: `${SHOTS}/04-roles.png` });
-  await ana.getByRole('button', { name: 'Membros' }).click();
+  await ana.getByRole('button', { name: 'Membros', exact: true }).click();
   await ana.locator('.member-admin', { hasText: 'Bia' }).locator('select').selectOption({ label: 'Moderação' });
   await ana.locator('.member-admin', { hasText: 'Bia' }).locator('.role-chip', { hasText: 'Moderação' }).waitFor();
   await ana.keyboard.press('Escape');
@@ -102,7 +102,7 @@ await step('Bia (moderadora) agora pode fixar mensagens', async () => {
   const msg = bia.locator('.message', { hasText: 'Bem-vindos' }).first();
   await msg.hover();
   await msg.getByTitle('Fixar').click();
-  await ana.locator('.message', { hasText: 'Bem-vindos' }).first().locator('.edited', { hasText: '📌' }).waitFor();
+  await ana.locator('.message', { hasText: 'Bem-vindos' }).first().locator('.pinned-flag').waitFor();
 });
 await step('Tópico (thread)', async () => {
   const msg = ana.locator('.message', { hasText: 'Bem-vindos' }).first();
@@ -110,7 +110,7 @@ await step('Tópico (thread)', async () => {
   await msg.getByTitle('Criar tópico').click();
   await ana.getByLabel('Nome do tópico').fill('Apresentações');
   await ana.getByRole('button', { name: 'Criar', exact: true }).click();
-  await ana.getByPlaceholder('Conversar em 🧵Apresentações').fill('Sou a Ana!');
+  await ana.getByPlaceholder('Conversar em Apresentações').fill('Sou a Ana!');
   await ana.keyboard.press('Enter');
   await bia.locator('.thread-link', { hasText: 'Apresentações' }).click();
   await bia.locator('.thread-panel .message', { hasText: 'Sou a Ana' }).waitFor();
@@ -119,14 +119,14 @@ await step('Tópico (thread)', async () => {
 });
 await step('Amizade e DM', async () => {
   await bia.getByLabel('Mensagens diretas').click();
-  await bia.getByRole('button', { name: 'Adicionar amigo' }).click();
+  await bia.getByRole('button', { name: 'Adicionar amigo', exact: true }).click();
   await bia.getByPlaceholder('Digite um nome de usuário').fill('ana');
-  await bia.getByRole('button', { name: 'Enviar pedido de amizade' }).click();
+  await bia.getByRole('button', { name: 'Enviar pedido de amizade', exact: true }).click();
   await bia.getByText('Pedido enviado para ana!').waitFor();
   await ana.getByLabel('Mensagens diretas').click();
   await ana.getByRole('button', { name: /Pendente/ }).click();
   await ana.getByTitle('Aceitar').click();
-  await ana.getByRole('button', { name: 'Todos' }).click();
+  await ana.getByRole('button', { name: 'Todos', exact: true }).click();
   await ana.locator('.friend-row', { hasText: 'Bia' }).getByTitle('Mensagem').click();
   await ana.getByPlaceholder('Conversar em @Bia').fill('Oi Bia, mensagem privada');
   await ana.keyboard.press('Enter');
@@ -144,20 +144,26 @@ await step('Upload de imagem', async () => {
 await step('Ambas entram no canal de voz com câmera', async () => {
   for (const p of [ana, bia]) {
     await p.getByLabel('Comunidade Nexo').click();
-    await p.getByRole('button', { name: '🔊 Geral' }).click();
+    await p.getByRole('button', { name: 'Geral', exact: true }).click();
   }
   await ana.locator('.call-tile').nth(1).waitFor({ timeout: 15000 });
   await bia.locator('.call-tile').nth(1).waitFor({ timeout: 15000 });
-  await ana.getByTitle('Câmera').click();
+  await ana.locator('.call-controls').getByTitle('Ligar câmera').click();
   await bia.locator('.call-tile video').waitFor({ timeout: 15000 });
   await ana.locator('.voice-users .voice-user').nth(1).waitFor();
   await new Promise((r) => setTimeout(r, 1500));
   await bia.screenshot({ path: `${SHOTS}/07-voice.png` });
+  // Screen share gets its own tile and the spotlight.
+  await ana.locator('.call-controls').getByTitle('Compartilhar tela').click();
+  await bia.locator('.call-stage.focused .call-tile.screen video').waitFor({ timeout: 15000 });
+  await bia.locator('.voice-user .live').waitFor();
+  await new Promise((r) => setTimeout(r, 1500));
+  await bia.screenshot({ path: `${SHOTS}/08-screen.png` });
   await ana.getByTitle('Desconectar').first().click();
   await bia.locator('.call-tile').nth(1).waitFor({ state: 'detached', timeout: 15000 });
 });
 await step('Presença: Bia fica offline para Ana ao sair', async () => {
-  await ana.getByRole('button', { name: '# geral' }).click();
+  await ana.getByRole('button', { name: 'geral', exact: true }).click();
   await bia.context().close();
   await ana.locator('.member.offline', { hasText: 'Bia' }).waitFor({ timeout: 8000 });
 });

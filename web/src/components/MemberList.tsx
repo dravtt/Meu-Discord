@@ -1,3 +1,4 @@
+import { Crown } from 'lucide-react';
 import { useStore, memberName, memberColor } from '../lib/store';
 import type { Channel, Member, Server } from '../lib/types';
 import { Avatar } from './Avatar';
@@ -29,7 +30,7 @@ export function MemberList({ server }: { server: Server; channel: Channel }) {
             <button key={m.user.id} className={`member ${online(m) ? '' : 'offline'}`} onClick={() => openModal(<ProfileCard userId={m.user.id} serverId={server.id} />)}>
               <Avatar user={m.user} size={32} showStatus />
               <span className="member-text">
-                <span style={{ color: memberColor(server.id, m.user.id) }}>{memberName(server.id, m.user)}{server.ownerId === m.user.id && ' 👑'}</span>
+                <span style={{ color: memberColor(server.id, m.user.id) }}>{memberName(server.id, m.user)}{server.ownerId === m.user.id && <Crown size={14} className="owner-crown" />}</span>
                 {presence[m.user.id]?.customStatus && <small>{presence[m.user.id].customStatus}</small>}
               </span>
             </button>

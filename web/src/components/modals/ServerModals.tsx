@@ -1,3 +1,4 @@
+import { Link, Sparkles, Volume2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { set, useStore, upsertServer } from '../../lib/store';
@@ -33,8 +34,8 @@ export function AddServerModal() {
     return (
       <Dialog title="Adicionar um servidor">
         <p className="muted">Seu servidor é onde você e seus amigos se encontram.</p>
-        <button className="list-row big" onClick={() => setMode('create')}>✨ Criar o meu</button>
-        <button className="list-row big" onClick={() => setMode('join')}>🔗 Entrar com um convite</button>
+        <button className="list-row big" onClick={() => setMode('create')}><Sparkles size={20} /> Criar o meu</button>
+        <button className="list-row big" onClick={() => setMode('join')}><Link size={20} /> Entrar com um convite</button>
       </Dialog>
     );
   }
@@ -142,7 +143,7 @@ export function CreateChannelModal({ serverId, parentId, category }: { serverId:
       {!category && (
         <div className="radio-cards">
           <button className={type === 'text' ? 'active' : ''} onClick={() => setType('text')}><strong># Texto</strong><small>Mensagens, imagens, opiniões e piadas</small></button>
-          <button className={type === 'voice' ? 'active' : ''} onClick={() => setType('voice')}><strong>🔊 Voz</strong><small>Conversem por voz, vídeo e compartilhem a tela</small></button>
+          <button className={type === 'voice' ? 'active' : ''} onClick={() => setType('voice')}><strong><Volume2 size={16} /> Voz</strong><small>Conversem por voz, vídeo e compartilhem a tela</small></button>
         </div>
       )}
       <label>Nome<input value={name} maxLength={100} onChange={(e) => setName(e.target.value)} placeholder={category ? 'nova categoria' : 'novo-canal'} autoFocus /></label>

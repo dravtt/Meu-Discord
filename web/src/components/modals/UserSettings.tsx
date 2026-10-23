@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useState } from 'react';
 import { api, setToken } from '../../lib/api';
 import { useStore, set } from '../../lib/store';
@@ -39,7 +40,7 @@ export function UserSettings() {
         <button className="danger" onClick={logout}>Sair</button>
       </nav>
       <div className="settings-body">
-        <button className="icon-btn close" onClick={closeModal}>✕</button>
+        <button className="icon-btn close" onClick={closeModal}><X size={20} /></button>
         {tab === 'profile' ? (
           <section>
             <h2>Perfil</h2>
