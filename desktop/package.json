@@ -1,9 +1,9 @@
 {
   "name": "@nexo/desktop",
-  "productName": "Nexo",
+  "productName": "Voka",
   "private": true,
   "version": "0.1.0",
-  "description": "Aplicativo desktop do Nexo",
+  "description": "Aplicativo desktop do Voka",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -13,7 +13,7 @@
   },
   "build": {
     "appId": "app.nexo.desktop",
-    "productName": "Nexo",
+    "productName": "Voka",
     "directories": {
       "output": "out"
     },
@@ -24,7 +24,7 @@
     ],
     "protocols": [
       {
-        "name": "Nexo",
+        "name": "Voka",
         "schemes": [
           "nexo"
         ]

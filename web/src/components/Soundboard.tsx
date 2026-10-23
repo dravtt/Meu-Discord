@@ -90,7 +90,7 @@ function SoundboardPanel({ x, bottom }: { x: number; bottom: number }) {
           );
         })}
         <section>
-          <h4>Sons do Nexo</h4>
+          <h4>Sons do Voka</h4>
           <div className="sound-grid">
             {BUILTIN_SOUNDS.filter((b) => match(b.name)).map((b) => (
               <SoundTile key={b.id} emoji={b.emoji} name={b.name} onPlay={() => play({ builtin: b.id })} onPreview={() => playLocal({ builtin: b.id })} />

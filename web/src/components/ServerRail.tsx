@@ -8,6 +8,7 @@ import { AddServerModal } from './modals/ServerModals';
 import { Avatar } from './Avatar';
 import { openMenu, ServerMenu } from './ContextMenu';
 import { GroupIcon } from './modals/GroupSettings';
+import { LogoGlyph } from './Logo';
 
 export function ServerRail() {
   const servers = useStore(useShallow((s) => s.serverOrder.map((id) => s.servers[id]).filter(Boolean)));
@@ -23,8 +24,8 @@ export function ServerRail() {
 
   return (
     <nav className="rail" aria-label="Servidores">
-      <RailItem active={view.kind === 'home'} label="Mensagens diretas" badge={pending} onClick={() => set({ view: { kind: 'home' }, openThreadId: null })}>
-        <span className="home-icon">N</span>
+      <RailItem className="home" active={view.kind === 'home'} label="Mensagens diretas" badge={pending} onClick={() => set({ view: { kind: 'home' }, openThreadId: null })}>
+        <LogoGlyph size={32} />
       </RailItem>
       {unreadDms.map((dm) => {
         const other = dm.type === 'dm' ? dm.recipients?.find((u) => u.id !== me?.id) : undefined;

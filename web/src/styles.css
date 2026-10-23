@@ -95,7 +95,8 @@ svg { flex-shrink: 0; }
 
 /* Splash + auth */
 .splash, .auth { height: 100vh; display: grid; place-items: center; align-content: center; gap: 12px; background: radial-gradient(circle at 30% 20%, #134e4a 0, var(--bg-0) 55%); }
-.logo-mark { width: 64px; height: 64px; border-radius: 20px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 34px; font-weight: 800; margin: 0 auto; }
+.logo { display: grid; place-items: center; background: linear-gradient(180deg, #7d35fb, #6f2afb); color: #fff; overflow: hidden; flex-shrink: 0; }
+.logo-mark { margin: 0 auto; }
 .logo-mark.pulse { animation: pulse 1.2s infinite ease-in-out; }
 @keyframes pulse { 50% { transform: scale(.88); opacity: .7; } }
 .auth-card { width: min(420px, calc(100vw - 32px)); background: var(--bg-1); padding: 32px; border-radius: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
@@ -118,7 +119,8 @@ svg { flex-shrink: 0; }
 .rail-btn { background: var(--bg-1); }
 .rail-item.add .rail-btn { color: var(--ok); font-size: 24px; font-weight: 400; }
 .rail-item.add:hover .rail-btn { background: var(--ok); color: #052e16; }
-.home-icon { font-weight: 800; font-size: 20px; }
+.rail-item.home .rail-btn, .rail-item.home:hover .rail-btn, .rail-item.home.active .rail-btn { background: linear-gradient(180deg, #7d35fb, #6f2afb); }
+.rail-item.home .rail-btn img { width: 32px; height: 32px; object-fit: contain; }
 .pill { position: absolute; left: 0; top: 50%; width: 4px; height: 0; background: white; border-radius: 0 4px 4px 0; transform: translateY(-50%); transition: height .15s; }
 .rail-item.unread .pill { height: 8px; }
 .rail-item:hover .pill { height: 20px; }

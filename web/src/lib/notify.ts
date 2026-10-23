@@ -56,7 +56,7 @@ export function notifyForMessage(m: Message, viewing: boolean) {
 export function notifyIncomingCall(channelId: string, callerName: string) {
   if (document.hasFocus() || get().me?.status === 'dnd' || !usePrefs.getState().desktopNotifications) return;
   const title = `${callerName} está te ligando`;
-  const body = 'Abra o Nexo para atender';
+  const body = 'Abra o Voka para atender';
   if (native) return native.notify({ title, body, channelId });
   if ('Notification' in window && Notification.permission === 'granted') {
     const n = new Notification(title, { body, tag: `call:${channelId}`, requireInteraction: true });
@@ -66,5 +66,5 @@ export function notifyIncomingCall(channelId: string, callerName: string) {
 
 export function updateBadge(count: number) {
   native?.setBadge(count);
-  document.title = count > 0 ? `(${count}) Nexo` : 'Nexo';
+  document.title = count > 0 ? `(${count}) Voka` : 'Voka';
 }

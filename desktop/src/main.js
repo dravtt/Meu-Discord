@@ -94,7 +94,7 @@ function createMainWindow() {
     minHeight: 500,
     show: false,
     backgroundColor: '#1c212a',
-    title: 'Nexo',
+    title: 'Voka',
     icon: path.join(ASSETS, 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
@@ -153,16 +153,16 @@ function showMain() {
 
 function createTray() {
   tray = new Tray(nativeImage.createFromPath(path.join(ASSETS, 'tray.png')));
-  tray.setToolTip('Nexo');
+  tray.setToolTip('Voka');
   const menu = () => Menu.buildFromTemplate([
-    { label: 'Abrir o Nexo', click: showMain },
+    { label: 'Abrir o Voka', click: showMain },
     { type: 'separator' },
     { label: 'Minimizar para a bandeja ao fechar', type: 'checkbox', checked: settings.get('minimizeToTray'), click: (i) => settings.set('minimizeToTray', i.checked) },
     { label: 'Iniciar com o sistema', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked, args: ['--minimized'] }) },
     { label: `Servidor: ${serverUrl()}`, enabled: false },
     { label: 'Trocar servidor…', click: changeServer },
     { type: 'separator' },
-    { label: 'Sair do Nexo', click: () => { quitting = true; app.quit(); } },
+    { label: 'Sair do Voka', click: () => { quitting = true; app.quit(); } },
   ]);
   tray.setContextMenu(menu());
   tray.on('click', showMain);
@@ -172,7 +172,7 @@ function createTray() {
 async function changeServer() {
   const choice = await dialog.showMessageBox({
     type: 'question',
-    message: 'Endereço do servidor do Nexo',
+    message: 'Endereço do servidor do Voka',
     detail: `Atual: ${serverUrl()}\n\nPara trocar, inicie o app com a variável NEXO_URL ou edite o arquivo:\n${path.join(app.getPath('userData'), 'settings.json')}`,
     buttons: ['Abrir pasta de configurações', 'Fechar'],
   });
@@ -196,7 +196,7 @@ ipcMain.on('nexo:badge', (event, count) => {
   if (process.platform === 'win32' && mainWindow) {
     mainWindow.setOverlayIcon(n > 0 ? nativeImage.createFromPath(path.join(ASSETS, 'badge.png')) : null, n > 0 ? `${n} menções` : '');
   }
-  tray?.setToolTip(n > 0 ? `Nexo — ${n} menções` : 'Nexo');
+  tray?.setToolTip(n > 0 ? `Voka — ${n} menções` : 'Voka');
 });
 
 const EDITABLE = new Set(['minimizeToTray', 'startMinimized', 'hardwareAcceleration']);
@@ -246,7 +246,7 @@ app.whenReady().then(() => {
     try { sameOrigin = new URL(details.requestingUrl).origin === serverOrigin(); } catch {}
     callback(sameOrigin && allowed.includes(permission));
   });
-  // Screen sharing: share what the user picked in Nexo's own picker (or the main screen as a fallback).
+  // Screen sharing: share what the user picked in Voka's own picker (or the main screen as a fallback).
   session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
     const pick = pickedSource && Date.now() - pickedSource.at < 30000 ? pickedSource : null;
     pickedSource = null;

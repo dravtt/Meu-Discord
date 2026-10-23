@@ -96,7 +96,7 @@ function NotificationsPanel() {
   return (
     <section>
       <h2>Notificações</h2>
-      <label className="check switch-row"><input type="checkbox" checked={prefs.desktopNotifications} onChange={(e) => savePrefs({ desktopNotifications: e.target.checked })} /> Notificações na área de trabalho (quando o Nexo está em segundo plano)</label>
+      <label className="check switch-row"><input type="checkbox" checked={prefs.desktopNotifications} onChange={(e) => savePrefs({ desktopNotifications: e.target.checked })} /> Notificações na área de trabalho (quando o Voka está em segundo plano)</label>
       {prefs.desktopNotifications && permission !== 'granted' && (
         <p className="muted small">O navegador está bloqueando as notificações.{' '}
           {permission === 'default' && <button className="link" onClick={() => Notification.requestPermission().then(setPermission)}>Permitir agora</button>}
@@ -199,7 +199,7 @@ function VoiceSettingsPanel() {
             <span className="field-label">Atraso ao soltar: {settings.pttReleaseMs} ms</span>
             <input type="range" min={0} max={1000} step={20} value={settings.pttReleaseMs} onChange={(e) => saveVoiceSettings({ pttReleaseMs: Number(e.target.value) })} />
           </div>
-          <p className="muted small full">Funciona com a janela do Nexo em foco. A tecla não atrapalha quando você está digitando no chat.</p>
+          <p className="muted small full">Funciona com a janela do Voka em foco. A tecla não atrapalha quando você está digitando no chat.</p>
         </div>
       ) : (
         <>
@@ -212,7 +212,7 @@ function VoiceSettingsPanel() {
           )}
           <p className="muted small">
             {settings.autoSensitivity
-              ? 'O Nexo mede o barulho de fundo e só abre o microfone quando a sua voz passa dele.'
+              ? 'O Voka mede o barulho de fundo e só abre o microfone quando a sua voz passa dele.'
               : 'Arraste: tudo que fica à direita da marca é transmitido. Fale e veja se a barra passa da marca; o ruído de fundo deve ficar à esquerda.'}
             {' '}Clique em "Testar microfone" (ou entre numa chamada) para ver a barra se mexer.
           </p>

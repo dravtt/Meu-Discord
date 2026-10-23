@@ -7,4 +7,4 @@ import { initRealtime } from './realtime.js';
 await migrate();
 const httpServer = createServer(createApp());
 initRealtime(httpServer);
-httpServer.listen(config.port, () => console.log(`Nexo API em http://localhost:${config.port}`));
+httpServer.listen(config.port, () => console.log(`Voka API em http://localhost:${config.port}`));

@@ -14,6 +14,7 @@ import { SoundboardHost } from './components/Soundboard';
 import { installPushToTalk } from './lib/micGate';
 import { joinInviteFromUrl } from './components/modals/ServerModals';
 import { restoreView } from './lib/session';
+import { Logo } from './components/Logo';
 
 export function App() {
   const [token, setTokenState] = useState(getToken());
@@ -46,8 +47,8 @@ export function App() {
   useEffect(() => updateBadge(badge), [badge]);
 
   if (!token) return <AuthScreen onAuthed={() => setTokenState(getToken())} />;
-  if (error) return <div className="splash"><div className="logo-mark">N</div><p>Erro ao carregar: {error}</p></div>;
-  if (!ready) return <div className="splash"><div className="logo-mark pulse">N</div><p>Carregando o Nexo…</p></div>;
+  if (error) return <div className="splash"><Logo size={64} className="logo-mark" /><p>Erro ao carregar: {error}</p></div>;
+  if (!ready) return <div className="splash"><Logo size={64} className="logo-mark pulse" /><p>Carregando o Voka…</p></div>;
 
   return (
     <div className="app">

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { api, setToken } from '../lib/api';
+import { Logo } from './Logo';
 
 export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -28,9 +29,9 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
   return (
     <div className="auth">
       <form className="auth-card" onSubmit={submit}>
-        <div className="logo-mark">N</div>
+        <Logo size={64} className="logo-mark" />
         <h1>{mode === 'login' ? 'Bem-vindo de volta!' : 'Criar uma conta'}</h1>
-        <p className="muted">{mode === 'login' ? 'Entre para continuar no Nexo.' : 'Leva menos de um minuto.'}</p>
+        <p className="muted">{mode === 'login' ? 'Entre para continuar no Voka.' : 'Leva menos de um minuto.'}</p>
         <label>Nome de usuário<input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required autoComplete="username" /></label>
         {mode === 'register' && <label>Nome de exibição<input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Opcional" /></label>}
         <label>Senha<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'register' ? 8 : 1} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></label>

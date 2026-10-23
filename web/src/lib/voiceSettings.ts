@@ -14,7 +14,7 @@ export interface VoiceSettings {
   pttKey: string;
   /** Keeps the mic open briefly after the key is released so the last word is not cut. */
   pttReleaseMs: number;
-  /** Let Nexo pick the sensitivity from the background noise level. */
+  /** Let Voka pick the sensitivity from the background noise level. */
   autoSensitivity: boolean;
   /** Manual voice-detection threshold in dB (-100 = everything passes, 0 = nothing passes). */
   sensitivityDb: number;

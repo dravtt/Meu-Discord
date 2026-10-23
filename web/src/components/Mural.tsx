@@ -16,7 +16,7 @@ const STEAM_ART = (id: number) => [
   `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/header.jpg`,
 ];
 
-/** A game's cover: the uploaded image, the Nexo catalog cover, Steam's art (trying each size in turn), or a colored tile with its name. */
+/** A game's cover: the uploaded image, the Voka catalog cover, Steam's art (trying each size in turn), or a colored tile with its name. */
 export function GameCover({ game, size = 'md' }: { game: Game; size?: 'sm' | 'md' | 'lg' }) {
   const sources = game.cover ? [assetUrl(game.cover)] : game.catalogId ? [`/games/${game.catalogId}.jpg`] : game.steamId ? STEAM_ART(game.steamId) : [];
   const key = sources.join();

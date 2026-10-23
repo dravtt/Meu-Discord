@@ -1,6 +1,6 @@
-# Nexo
+# Voka
 
-Nexo é um app de comunidades e chat em tempo real, no estilo do Discord, escrito do zero.
+Voka é um app de comunidades e chat em tempo real, no estilo do Discord, escrito do zero.
 Tem servidor (API), aplicativo web e aplicativo desktop para Windows, macOS e Linux.
 
 Nenhum código, imagem, som ou marca do Discord foi usado. A arquitetura do app desktop
@@ -85,7 +85,7 @@ $env:NEXO_URL="https://seu-servidor"; npm run desktop   # outro servidor
 npm run dist:win                     # gera o instalador em desktop\out
 ```
 
-O app guarda as configurações em `%APPDATA%\Nexo\settings.json` (endereço do servidor, bandeja, etc.).
+O app guarda as configurações em `%APPDATA%\Voka\settings.json` (endereço do servidor, bandeja, etc.).
 Para a atualização automática, publique os arquivos de `desktop\out` num endereço e coloque esse endereço
 em `build.publish.url` no `desktop/package.json`.
 

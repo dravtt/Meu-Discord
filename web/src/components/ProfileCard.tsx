@@ -105,7 +105,7 @@ export function ProfileCard({ userId, serverId }: { userId: string; serverId: st
         {shown.bio && <div className="pc-section"><h4>Sobre mim</h4><p className="pc-bio">{shown.bio}</p></div>}
         <div className="pc-section">
           <h4>Membro desde</h4>
-          <p className="small">Nexo: {longDate(user.createdAt)}{member && server ? <> · {server.name}: {longDate(member.joinedAt)}</> : null}</p>
+          <p className="small">Voka: {longDate(user.createdAt)}{member && server ? <> · {server.name}: {longDate(member.joinedAt)}</> : null}</p>
         </div>
         {roles.length > 0 && (
           <div className="pc-section"><h4>Cargos</h4>

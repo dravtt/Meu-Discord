@@ -29,12 +29,12 @@ await ana.screenshot({ path: `${SHOTS}/01-home.png` });
 await step('Ana cria um servidor', async () => {
   await ana.getByLabel('Adicionar um servidor').click();
   await ana.getByText('Criar o meu').click();
-  await ana.getByLabel('Nome do servidor').fill('Comunidade Nexo');
+  await ana.getByLabel('Nome do servidor').fill('Comunidade Voka');
   await ana.getByRole('button', { name: 'Criar', exact: true }).click();
   await ana.getByRole('heading', { name: 'Bem-vindo a #geral!' }).waitFor();
 });
 await step('Ana envia mensagem formatada', async () => {
-  await ana.getByPlaceholder('Conversar em #geral').fill('Olá **pessoal**! Bem-vindos ao `Nexo` 🎉');
+  await ana.getByPlaceholder('Conversar em #geral').fill('Olá **pessoal**! Bem-vindos ao `Voka` 🎉');
   await ana.keyboard.press('Enter');
   await ana.locator('.message .content', { hasText: 'Bem-vindos' }).waitFor();
 });
@@ -175,7 +175,7 @@ await step('Ligação na DM: Bia recusa, depois atende', async () => {
   await ana.locator('.call-controls').getByTitle('Desconectar').click();
 });
 await step('Menu do botão direito, nota e menus que fecham ao clicar fora', async () => {
-  await ana.getByLabel('Comunidade Nexo').click();
+  await ana.getByLabel('Comunidade Voka').click();
   await ana.getByRole('button', { name: 'geral', exact: true }).click();
   await ana.locator('.member-list .member', { hasText: 'Bia' }).click({ button: 'right' });
   const menu = ana.locator('.ctx-menu');
@@ -205,7 +205,7 @@ await step('Menu do botão direito, nota e menus que fecham ao clicar fora', asy
 });
 await step('Ambas entram no canal de voz com câmera', async () => {
   for (const p of [ana, bia]) {
-    await p.getByLabel('Comunidade Nexo').click();
+    await p.getByLabel('Comunidade Voka').click();
     await p.getByRole('button', { name: 'Geral', exact: true }).click();
   }
   await ana.locator('.call-tile').nth(1).waitFor({ timeout: 15000 });
@@ -297,7 +297,7 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
     await ana.getByLabel('Buscar jogo').fill(g);
     await ana.getByRole('button', { name: `Adicionar "${g}" sem capa` }).click();
   }
-  // Games outside Steam come from Nexo's own catalog, cover included.
+  // Games outside Steam come from Voka's own catalog, cover included.
   await ana.getByLabel('Buscar jogo').fill('valo');
   await ana.getByRole('option', { name: 'VALORANT' }).click();
   await ana.locator('.we-game img[src="/games/valorant.jpg"]').waitFor();
@@ -314,7 +314,7 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
   await new Promise((r) => setTimeout(r, 400));
   await bia.screenshot({ path: `${SHOTS}/16-profile-card.png` });
   await bia.getByRole('button', { name: /Servidores em comum/ }).click();
-  await bia.locator('.profile-side-body .list-row', { hasText: 'Comunidade Nexo' }).waitFor();
+  await bia.locator('.profile-side-body .list-row', { hasText: 'Comunidade Voka' }).waitFor();
   await bia.keyboard.press('Escape');
   // Your own profile from the panel at the bottom left.
   await ana.locator('.user-panel .me').click();
