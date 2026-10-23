@@ -15,10 +15,14 @@ export interface Prefs {
   userVolume: Record<string, number>;
   /** Users you muted for yourself in calls. */
   userMuted: Record<string, boolean>;
+  /** Last screen share choices. */
+  screenQuality: '720' | '1080' | 'source';
+  screenFps: 15 | 30 | 60;
+  screenAudio: boolean;
 }
 
 const KEY = 'nexo:prefs';
-const DEFAULTS: Prefs = { theme: 'dark', desktopNotifications: true, messageSounds: true, callSounds: true, serverNotify: {}, userVolume: {}, userMuted: {} };
+const DEFAULTS: Prefs = { theme: 'dark', desktopNotifications: true, messageSounds: true, callSounds: true, serverNotify: {}, userVolume: {}, userMuted: {}, screenQuality: '1080', screenFps: 30, screenAudio: true };
 
 function load(): Prefs {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return DEFAULTS; }

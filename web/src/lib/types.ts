@@ -76,6 +76,8 @@ export interface Message {
   channelId: string;
   author: User;
   content: string;
+  /** 'default' for normal messages; the rest are group notices like someone leaving. */
+  kind?: 'default' | 'member_add' | 'member_remove' | 'member_leave' | 'group_name';
   createdAt: string;
   editedAt: string | null;
   pinned: boolean;

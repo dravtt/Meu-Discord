@@ -257,19 +257,41 @@ export async function toggleVideo() {
   syncTiles();
 }
 
-export async function toggleScreen() {
+export type ScreenQuality = '720' | '1080' | 'source';
+export interface ScreenOptions { quality: ScreenQuality; fps: 15 | 30 | 60; audio: boolean }
+
+const SCREEN_SIZE: Record<ScreenQuality, { width: number; height: number }> = {
+  '720': { width: 1280, height: 720 },
+  '1080': { width: 1920, height: 1080 },
+  source: { width: 3840, height: 2160 },
+};
+const SCREEN_BITRATE: Record<ScreenQuality, number> = { '720': 2_500_000, '1080': 4_500_000, source: 8_000_000 };
+
+/** Starts sharing with the chosen quality. The browser (or the desktop app) asks which screen. */
+export async function startScreen(o: ScreenOptions) {
   if (!room) return;
-  const screen = !useCall.getState().screen;
   try {
-    await room.localParticipant.setScreenShareEnabled(screen, {
-      audio: true,
-      resolution: ScreenSharePresets.h1080fps30.resolution,
-      contentHint: 'detail',
+    await room.localParticipant.setScreenShareEnabled(true, {
+      audio: o.audio,
+      systemAudio: o.audio ? 'include' : 'exclude',
+      resolution: { ...SCREEN_SIZE[o.quality], frameRate: o.fps },
+      // Games and video look smoother as "motion"; text and code stay sharp as "detail".
+      contentHint: o.fps >= 60 ? 'motion' : 'detail',
       selfBrowserSurface: 'exclude',
       surfaceSwitching: 'include',
+    }, {
+      screenShareEncoding: { maxBitrate: Math.round(SCREEN_BITRATE[o.quality] * (o.fps >= 60 ? 1.5 : 1)), maxFramerate: o.fps },
     });
-    useCall.setState({ screen });
+    useCall.setState({ screen: true });
   } catch { /* user cancelled the picker */ }
+  sendState();
+  syncTiles();
+}
+
+export async function stopScreen() {
+  if (!room) return;
+  await room.localParticipant.setScreenShareEnabled(false).catch(() => {});
+  useCall.setState({ screen: false });
   sendState();
   syncTiles();
 }

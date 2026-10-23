@@ -1,10 +1,10 @@
-import { Check, MessageCircle, Users, X } from 'lucide-react';
+import { Check, MessageCircle, UserMinus, Users, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useStore, set } from '../lib/store';
 import { api } from '../lib/api';
 import type { Channel, Relationship } from '../lib/types';
 import { Avatar, STATUS_LABEL } from './Avatar';
-import { openModal } from './Modal';
+import { confirmDialog, openModal } from './Modal';
 import { ProfileCard } from './ProfileCard';
 import { userMenuProps } from './ContextMenu';
 
@@ -63,7 +63,12 @@ function FriendRow({ r }: { r: Relationship }) {
       <div className="row gap">
         {r.type === 'friend' && <button className="icon-btn" title="Mensagem" onClick={message}><MessageCircle size={18} /></button>}
         {r.type === 'incoming' && <button className="icon-btn ok" title="Aceitar" onClick={() => api(`/relationships/${r.user.id}`, { method: 'PUT' })}><Check size={18} /></button>}
-        <button className="icon-btn danger" title={r.type === 'friend' ? 'Remover amigo' : r.type === 'blocked' ? 'Desbloquear' : 'Recusar'} onClick={() => api(`/relationships/${r.user.id}`, { method: 'DELETE' })}><X size={18} /></button>
+        {r.type === 'friend'
+          ? <button className="icon-btn danger" title="Remover amigo" aria-label="Remover amigo"
+              onClick={() => confirmDialog('Remover amigo', `Tem certeza que quer remover ${r.user.displayName} dos seus amigos?`, 'Remover amigo', async () => { await api(`/relationships/${r.user.id}`, { method: 'DELETE' }); })}>
+              <UserMinus size={18} />
+            </button>
+          : <button className="icon-btn danger" title={r.type === 'blocked' ? 'Desbloquear' : r.type === 'outgoing' ? 'Cancelar pedido' : 'Recusar'} onClick={() => api(`/relationships/${r.user.id}`, { method: 'DELETE' })}><X size={18} /></button>}
       </div>
     </div>
   );

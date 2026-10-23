@@ -74,6 +74,7 @@ export async function loadMessages(ids: string[], viewerId: string, db: Queryabl
       channelId: r.channel_id,
       author: await publicUser(r.author),
       content: r.content,
+      kind: r.kind,
       createdAt: r.created_at,
       editedAt: r.edited_at,
       pinned: r.pinned,

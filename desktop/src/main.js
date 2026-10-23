@@ -210,6 +210,28 @@ ipcMain.handle('nexo:set-setting', (event, key, value) => {
   return true;
 });
 
+/* Screen sharing: the web app shows its own picker with these thumbnails, then asks to share one. */
+let pickedSource = null;
+ipcMain.handle('nexo:screen-sources', async (event) => {
+  if (!fromApp(event)) return [];
+  const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 400, height: 225 }, fetchWindowIcons: true });
+  const screens = sources.filter((s) => s.id.startsWith('screen:'));
+  return sources
+    .filter((s) => !s.thumbnail.isEmpty())
+    .map((s) => ({
+      id: s.id,
+      name: s.id.startsWith('screen:') ? (screens.length > 1 ? `Tela ${screens.indexOf(s) + 1}` : 'Tela inteira') : s.name,
+      kind: s.id.startsWith('screen:') ? 'screen' : 'window',
+      thumbnail: s.thumbnail.toDataURL(),
+      icon: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : undefined,
+    }));
+});
+ipcMain.handle('nexo:screen-pick', (event, id, audio) => {
+  if (!fromApp(event)) return false;
+  pickedSource = { id: String(id), audio: !!audio, at: Date.now() };
+  return true;
+});
+
 ipcMain.on('splash:retry', (event) => {
   if (splash && event.sender === splash.webContents) boot();
 });
@@ -224,12 +246,18 @@ app.whenReady().then(() => {
     try { sameOrigin = new URL(details.requestingUrl).origin === serverOrigin(); } catch {}
     callback(sameOrigin && allowed.includes(permission));
   });
-  // Screen sharing: use the OS picker where available, otherwise share the primary screen.
+  // Screen sharing: share what the user picked in Nexo's own picker (or the main screen as a fallback).
   session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    const pick = pickedSource && Date.now() - pickedSource.at < 30000 ? pickedSource : null;
+    pickedSource = null;
     desktopCapturer.getSources({ types: ['screen', 'window'] })
-      .then((sources) => callback({ video: sources[0], audio: process.platform === 'win32' ? 'loopback' : undefined }))
+      .then((sources) => {
+        const video = (pick && sources.find((s) => s.id === pick.id)) || sources.find((s) => s.id.startsWith('screen:')) || sources[0];
+        const audio = process.platform === 'win32' && (pick ? pick.audio : true) ? 'loopback' : undefined;
+        callback(video ? { video, audio } : {});
+      })
       .catch(() => callback({}));
-  }, { useSystemPicker: true });
+  });
 
   createTray();
   createSplash();

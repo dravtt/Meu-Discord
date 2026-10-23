@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
 import { useClickOutside } from './ContextMenu';
 import { useSpeaking } from '../lib/speaking';
+import { openScreenShare } from './ScreenShareModal';
 import { useStore, set, findChannel } from '../lib/store';
 import { api } from '../lib/api';
 import { Headphones, HeadphoneOff, Mic, MicOff, MonitorOff, MonitorUp, PhoneOff, Settings, Signal, Video, VideoOff } from 'lucide-react';
-import { leaveCall, toggleDeafen, toggleMute, toggleScreen, toggleVideo, useCall } from '../lib/voice';
+import { leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall } from '../lib/voice';
 import type { Status } from '../lib/types';
 import { Avatar, STATUS_LABEL } from './Avatar';
 import { openModal } from './Modal';
@@ -78,7 +79,7 @@ export function VoiceBar() {
       {channelId && (
         <div className="voice-bar-actions">
           <button className={video ? 'on' : ''} title={video ? 'Desligar câmera' : 'Ligar câmera'} onClick={toggleVideo}>{video ? <Video size={18} /> : <VideoOff size={18} />}</button>
-          <button className={screen ? 'on' : ''} title={screen ? 'Parar de transmitir' : 'Compartilhar tela'} onClick={toggleScreen}>{screen ? <MonitorOff size={18} /> : <MonitorUp size={18} />}</button>
+          <button className={screen ? 'on' : ''} title={screen ? 'Parar de transmitir' : 'Compartilhar tela'} onClick={openScreenShare}>{screen ? <MonitorOff size={18} /> : <MonitorUp size={18} />}</button>
         </div>
       )}
     </div>

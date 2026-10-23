@@ -44,7 +44,7 @@ export function notifyForMessage(m: Message, viewing: boolean) {
   if (document.hasFocus() || !prefs.desktopNotifications) return;
   const author = memberName(channel.serverId, m.author);
   const title = isDm ? (channel.type === 'dm' ? author : `${author} em ${dmName(channel, me.id)}`) : `${author} (#${channel.name})`;
-  const body = m.content.replace(/<@([0-9a-f-]{36})>/g, '@…').slice(0, 200) || 'Enviou um anexo';
+  const body = (m.kind && m.kind !== 'default' ? `${author} ` : '') + m.content.replace(/<@([0-9a-f-]{36})>/g, '@…').slice(0, 200) || 'Enviou um anexo';
   if (native) return native.notify({ title, body, channelId: channel.id });
   if ('Notification' in window && Notification.permission === 'granted') {
     const n = new Notification(title, { body, icon: assetUrl(m.author.avatarUrl) || undefined, tag: channel.id, silent: true });

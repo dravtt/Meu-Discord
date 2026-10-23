@@ -12,4 +12,6 @@ contextBridge.exposeInMainWorld('nexoNative', {
   onNotificationClick: (cb) => ipcRenderer.on('nexo:notification-click', (_e, channelId) => cb(channelId)),
   getSettings: () => ipcRenderer.invoke('nexo:get-settings'),
   setSetting: (key, value) => ipcRenderer.invoke('nexo:set-setting', key, value),
+  getScreenSources: () => ipcRenderer.invoke('nexo:screen-sources'),
+  pickScreenSource: (id, audio) => ipcRenderer.invoke('nexo:screen-pick', String(id), !!audio),
 });

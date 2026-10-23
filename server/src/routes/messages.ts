@@ -128,6 +128,7 @@ async function loadOwnedOrModerated(req: any, needManage: boolean) {
 
 messagesRouter.patch('/channels/:channelId/messages/:messageId', async (req, res) => {
   const { channel, message } = await loadOwnedOrModerated(req, false);
+  if (message.kind !== 'default') throw forbidden('Avisos do sistema não podem ser editados');
   const { content } = z.object({ content: z.string().trim().min(1).max(4000) }).parse(req.body);
   await transaction(async (db) => {
     await db.query('UPDATE messages SET content = $2, edited_at = now() WHERE id = $1', [message.id, content]);

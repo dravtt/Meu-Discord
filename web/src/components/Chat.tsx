@@ -1,4 +1,4 @@
-import { AtSign, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X, UserPlus } from 'lucide-react';
+import { AtSign, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X, UserPlus, UserMinus } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore, set, get, dmName, memberName, memberColor, findChannel } from '../lib/store';
 import { api, assetUrl } from '../lib/api';
@@ -91,7 +91,7 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
   };
 
   const title = isDm ? dmName(channel, me?.id) : channel.name;
-  const icon = isThread ? <MessagesSquare size={20} /> : isDm ? <AtSign size={20} /> : <Hash size={20} />;
+  const icon = isThread ? <MessagesSquare size={20} /> : channel.type === 'group_dm' ? <Users size={20} /> : isDm ? <AtSign size={20} /> : <Hash size={20} />;
 
   return (
     <section className="chat">
@@ -134,7 +134,7 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
 }
 
 function sameGroup(a: Message | undefined, b: Message) {
-  return !!a && a.author.id === b.author.id && !b.replyTo && new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() < 5 * 60_000;
+  return !!a && (a.kind ?? 'default') === 'default' && a.author.id === b.author.id && !b.replyTo && new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() < 5 * 60_000;
 }
 
 function formatTime(iso: string) {
@@ -164,9 +164,27 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
     void api(`/channels/${channel.id}/messages/${m.id}/reactions/${encodeURIComponent(emoji)}`, { method: mine ? 'DELETE' : 'PUT' });
   };
 
+  const day = showDay && <div className="day-divider"><span>{new Date(m.createdAt).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>;
+  if (m.kind && m.kind !== 'default') {
+    const Icon = m.kind === 'member_leave' || m.kind === 'member_remove' ? UserMinus : m.kind === 'member_add' ? UserPlus : Pencil;
+    return (
+      <>
+        {day}
+        <div className={`system-message ${m.kind}`} id={`msg-${m.id}`}>
+          <Icon size={16} className="system-icon" />
+          <span>
+            <button className="author" {...userMenuProps(m.author.id, serverId)} onClick={() => openModal(<ProfileCard userId={m.author.id} serverId={serverId} />)}>{memberName(serverId, m.author)}</button>
+            {' '}{m.content}
+          </span>
+          <time>{formatTime(m.createdAt)}</time>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      {showDay && <div className="day-divider"><span>{new Date(m.createdAt).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>}
+      {day}
       <article className={`message ${grouped && !showDay ? 'grouped' : ''} ${mentioned ? 'mentioned' : ''} ${m.pending ? 'pending' : ''}`}>
         {m.replyTo && (
           <div className="reply-ref" onClick={() => document.getElementById(`msg-${m.replyTo!.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>

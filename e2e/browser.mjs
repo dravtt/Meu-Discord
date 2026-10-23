@@ -224,6 +224,9 @@ await step('Ambas entram no canal de voz com câmera', async () => {
   await ana.keyboard.press('Escape');
   // A screen share covers the sharer's own tile (camera in the corner) and takes the spotlight.
   await ana.locator('.call-controls').getByTitle('Compartilhar tela').click();
+  await ana.getByRole('button', { name: '60 FPS' }).click();
+  await ana.screenshot({ path: `${SHOTS}/17-share-dialog.png` });
+  await ana.getByRole('button', { name: 'Transmitir', exact: true }).click();
   await bia.locator('.call-stage.focused > .call-tile.screen > video').waitFor({ timeout: 15000 });
   await bia.locator('.call-stage.focused > .call-tile.screen .tile-pip video').waitFor({ timeout: 15000 });
   await bia.locator('.voice-user .live').waitFor();

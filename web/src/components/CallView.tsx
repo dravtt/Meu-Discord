@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Headphones, HeadphoneOff, Maximize2, Mic, MicOff, Minimize2, Monitor, MonitorOff, MonitorUp, PhoneOff, Video, VideoOff, Volume2 } from 'lucide-react';
 import type { Track } from 'livekit-client';
 import { useStore, findChannel, dmName } from '../lib/store';
-import { joinCall, leaveCall, toggleDeafen, toggleMute, toggleScreen, toggleVideo, useCall, type Tile } from '../lib/voice';
+import { joinCall, leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall, type Tile } from '../lib/voice';
 import { has, P } from '../lib/permissions';
 import { useSpeaking } from '../lib/speaking';
+import { openScreenShare } from './ScreenShareModal';
 import { userMenuProps } from './ContextMenu';
 import { Avatar } from './Avatar';
 
@@ -93,7 +94,7 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
           </button>
         )}
         {canVideo && (
-          <button className={`round ${call.screen ? 'on' : ''}`} title={call.screen ? 'Parar de transmitir' : 'Compartilhar tela'} onClick={toggleScreen}>
+          <button className={`round ${call.screen ? 'on' : ''}`} title={call.screen ? 'Parar de transmitir' : 'Compartilhar tela'} onClick={openScreenShare}>
             {call.screen ? <MonitorOff size={22} /> : <MonitorUp size={22} />}
           </button>
         )}

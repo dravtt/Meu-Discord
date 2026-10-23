@@ -309,6 +309,32 @@ describe('DM close, notes and server order', () => {
     biaSocket.close();
   });
 
+  it('closing a DM keeps the friendship', async () => {
+    const dm = (await api().post('/api/dms').set(auth(ana)).send({ userIds: [bia.id] })).body;
+    await api().delete(`/api/dms/${dm.id}`).set(auth(ana)).expect(204);
+    const rel = (await api().get('/api/relationships').set(auth(ana)).expect(200)).body;
+    expect(rel.find((r: any) => r.user.id === bia.id)?.type).toBe('friend');
+  });
+
+  it('posts a notice in the group when someone joins or leaves', async () => {
+    const fabi = await register('fabi');
+    await api().put(`/api/relationships/${fabi.id}`).set(auth(ana)).expect(200);
+    await api().put(`/api/relationships/${ana.id}`).set(auth(fabi)).expect(200);
+    const group = (await api().post('/api/dms').set(auth(ana)).send({ userIds: [bia.id] }).expect(200)).body;
+    const g = (await api().post('/api/dms').set(auth(ana)).send({ userIds: [bia.id, fabi.id] }).expect(201)).body;
+    expect(g.id).not.toBe(group.id);
+    const anaSocket = await connect(ana);
+    const left = nextEvent(anaSocket, 'message:create');
+    await api().delete(`/api/dms/${g.id}/recipients/@me`).set(auth(fabi)).expect(204);
+    expect(await left).toMatchObject({ channelId: g.id, kind: 'member_leave', content: 'saiu do grupo.', author: { id: fabi.id } });
+    const added = nextEvent(anaSocket, 'message:create');
+    await api().put(`/api/dms/${g.id}/recipients/${fabi.id}`).set(auth(ana)).expect(200);
+    expect(await added).toMatchObject({ kind: 'member_add', content: 'adicionou fabi ao grupo.' });
+    anaSocket.close();
+    const msgs = (await api().get(`/api/channels/${g.id}/messages`).set(auth(bia)).expect(200)).body;
+    await api().patch(`/api/channels/${g.id}/messages/${msgs[0].id}`).set(auth(fabi)).send({ content: 'x' }).expect(403);
+  });
+
   it('keeps private notes and the server order', async () => {
     await api().put(`/api/users/${bia.id}/note`).set(auth(ana)).send({ note: 'amiga da escola' }).expect(200);
     expect((await api().get(`/api/users/${bia.id}`).set(auth(ana)).expect(200)).body.note).toBe('amiga da escola');

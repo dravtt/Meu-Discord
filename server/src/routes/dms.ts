@@ -4,8 +4,8 @@ import { one, query, transaction } from '../db.js';
 import { requireAuth, uid } from '../auth.js';
 import { badRequest, forbidden, notFound } from '../errors.js';
 import { getChannel } from '../permissions.js';
-import { emitToUser } from '../realtime.js';
-import { getPublicUser, serializeChannel } from '../serializers.js';
+import { emitToChannel, emitToUser } from '../realtime.js';
+import { getPublicUser, loadMessage, serializeChannel } from '../serializers.js';
 import { isBlockedBetween } from './relationships.js';
 
 export const dmsRouter = Router();
@@ -24,6 +24,19 @@ async function notifyRecipients(channelId: string, event = 'dm:update') {
   for (const r of payload.recipients) if (r) emitToUser(r.id, event, payload);
   return payload;
 }
+
+type SystemKind = 'member_add' | 'member_remove' | 'member_leave' | 'group_name';
+
+/** Posts a notice like "Ana saiu do grupo." in a group DM so everyone still in it sees what changed. */
+async function systemMessage(channelId: string, authorId: string, kind: SystemKind, content: string) {
+  const m = await one<{ id: string; created_at: string }>(
+    'INSERT INTO messages (channel_id, author_id, content, kind) VALUES ($1, $2, $3, $4) RETURNING id, created_at',
+    [channelId, authorId, content, kind]);
+  await one('UPDATE channels SET last_message_at = $2 WHERE id = $1', [channelId, m!.created_at]);
+  await emitToChannel(await getChannel(channelId), 'message:create', await loadMessage(m!.id, authorId));
+}
+
+const nameOf = async (userId: string) => (await getPublicUser(userId))?.displayName ?? 'alguém';
 
 dmsRouter.get('/dms', async (req, res) => {
   const rows = await query(
@@ -72,7 +85,9 @@ dmsRouter.patch('/dms/:channelId', async (req, res) => {
   if (c.type !== 'group_dm' || !(await one('SELECT 1 FROM dm_recipients WHERE channel_id = $1 AND user_id = $2', [c.id, uid(req)]))) throw notFound();
   const { name } = z.object({ name: z.string().max(100) }).parse(req.body);
   await one('UPDATE channels SET name = $2 WHERE id = $1', [c.id, name]);
-  res.json(await notifyRecipients(c.id));
+  const payload = await notifyRecipients(c.id);
+  if (name !== c.name) await systemMessage(c.id, uid(req), 'group_name', name ? `mudou o nome do grupo para ${name}.` : 'removeu o nome do grupo.');
+  res.json(payload);
 });
 
 dmsRouter.put('/dms/:channelId/recipients/:userId', async (req, res) => {
@@ -82,9 +97,11 @@ dmsRouter.put('/dms/:channelId/recipients/:userId', async (req, res) => {
   if (count!.n >= MAX_GROUP) throw badRequest('O grupo está cheio');
   const target = String(req.params.userId);
   if (!(await one("SELECT 1 FROM relationships WHERE user_id = $1 AND target_id = $2 AND type = 'friend'", [uid(req), target]))) throw forbidden('Só é possível adicionar amigos');
-  await one('INSERT INTO dm_recipients (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [c.id, target]);
+  const added = await one('INSERT INTO dm_recipients (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING 1', [c.id, target]);
   emitToUser(target, 'dm:create', await dmPayload(c.id));
-  res.json(await notifyRecipients(c.id));
+  const payload = await notifyRecipients(c.id);
+  if (added) await systemMessage(c.id, uid(req), 'member_add', `adicionou ${await nameOf(target)} ao grupo.`);
+  res.json(payload);
 });
 
 /** Closes a 1:1 DM for you: it leaves your list until someone sends a new message. */
@@ -103,13 +120,16 @@ dmsRouter.delete('/dms/:channelId/recipients/:userId', async (req, res) => {
   const target = req.params.userId === '@me' ? uid(req) : String(req.params.userId);
   if (c.type !== 'group_dm') throw badRequest('Somente grupos');
   if (target !== uid(req) && c.owner_id !== uid(req)) throw forbidden();
-  await one('DELETE FROM dm_recipients WHERE channel_id = $1 AND user_id = $2', [c.id, target]);
+  const removed = await one('DELETE FROM dm_recipients WHERE channel_id = $1 AND user_id = $2 RETURNING 1', [c.id, target]);
+  if (!removed) throw notFound();
   emitToUser(target, 'dm:delete', { id: c.id });
   const remaining = await query('SELECT user_id FROM dm_recipients WHERE channel_id = $1', [c.id]);
   if (remaining.length === 0) await one('DELETE FROM channels WHERE id = $1', [c.id]);
   else {
     if (c.owner_id === target) await one('UPDATE channels SET owner_id = $2 WHERE id = $1', [c.id, remaining[0].user_id]);
     await notifyRecipients(c.id);
+    if (target === uid(req)) await systemMessage(c.id, target, 'member_leave', 'saiu do grupo.');
+    else await systemMessage(c.id, uid(req), 'member_remove', `removeu ${await nameOf(target)} do grupo.`);
   }
   res.status(204).end();
 });
