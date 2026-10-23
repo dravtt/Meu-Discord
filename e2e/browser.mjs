@@ -222,6 +222,12 @@ await step('Ambas entram no canal de voz com câmera', async () => {
   await ana.locator('.ctx-menu').getByText('Volume do usuário').waitFor();
   await ana.screenshot({ path: `${SHOTS}/12-volume.png` });
   await ana.keyboard.press('Escape');
+  // Reloading the page keeps Ana in the same channel and back in the call.
+  await ana.reload();
+  await ana.locator('.channel-item.active', { hasText: 'Geral' }).waitFor({ timeout: 15000 });
+  await ana.locator('.call-tile').nth(1).waitFor({ timeout: 15000 });
+  await ana.locator('.call-controls').getByTitle('Ligar câmera').click();
+  await bia.locator('.call-tile video').waitFor({ timeout: 15000 });
   // Soundboard: Ana plays a built-in sound and Bia sees the emoji pop on Ana's tile.
   await ana.locator('.call-controls').getByTitle('Efeitos sonoros').click();
   await ana.locator('.soundboard').getByText('ba dum tss').waitFor();
@@ -268,7 +274,8 @@ await step('Aparência, notificações e voz', async () => {
 await step('Presença: Bia fica offline para Ana ao sair', async () => {
   await ana.getByRole('button', { name: 'geral', exact: true }).click();
   await bia.context().close();
-  await ana.locator('.member.offline', { hasText: 'Bia' }).waitFor({ timeout: 8000 });
+  // The server waits ~10 s (in case it is just a page reload) before showing someone offline.
+  await ana.locator('.member.offline', { hasText: 'Bia' }).waitFor({ timeout: 20000 });
 });
 
 console.log(errors.length ? `\nErros no console:\n${[...new Set(errors)].join('\n')}` : '\nSem erros no console.');

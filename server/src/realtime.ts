@@ -28,6 +28,10 @@ interface Ring { channelId: string; callerId: string; recipients: string[]; decl
 /** channelId -> ringing DM call. Starts when someone calls an empty DM, ends when anyone answers. */
 const rings = new Map<string, Ring>();
 
+const DISCONNECT_GRACE_MS = Number(process.env.NEXO_DISCONNECT_GRACE_MS ?? 10000);
+/** Users whose last socket just closed, waiting out the grace period. */
+const goingAway = new Map<string, ReturnType<typeof setTimeout>>();
+
 export function initRealtime(httpServer: HttpServer) {
   io = new Server(httpServer, { cors: { origin: config.webOrigin, credentials: true } });
 
@@ -50,9 +54,12 @@ async function onConnection(socket: Socket) {
   const servers = await query<{ server_id: string }>('SELECT server_id FROM members WHERE user_id = $1', [userId]);
   for (const s of servers) socket.join(`server:${s.server_id}`);
 
+  const returning = goingAway.has(userId);
+  clearTimeout(goingAway.get(userId));
+  goingAway.delete(userId);
   const count = (connections.get(userId) ?? 0) + 1;
   connections.set(userId, count);
-  if (count === 1) await broadcastPresence(userId);
+  if (count === 1 && !returning) await broadcastPresence(userId);
 
   socket.emit('ready', {
     voiceStates: [...voiceStates.values()].flatMap((m) => [...m.values()]),
@@ -81,15 +88,20 @@ async function onConnection(socket: Socket) {
 
   socket.on('voice:leave', () => leaveVoice(userId));
 
-  socket.on('disconnect', async () => {
+  socket.on('disconnect', () => {
     const left = (connections.get(userId) ?? 1) - 1;
-    if (left <= 0) {
+    if (left > 0) return void connections.set(userId, left);
+    // A page reload drops the socket for a moment. Wait a bit before taking the person out of
+    // their call and showing them offline, so a quick reconnect picks up where it left off.
+    connections.set(userId, 0);
+    clearTimeout(goingAway.get(userId));
+    goingAway.set(userId, setTimeout(() => {
+      goingAway.delete(userId);
+      if ((connections.get(userId) ?? 0) > 0) return;
       connections.delete(userId);
       leaveVoice(userId);
-      await broadcastPresence(userId).catch(() => {});
-    } else {
-      connections.set(userId, left);
-    }
+      void broadcastPresence(userId).catch(() => {});
+    }, DISCONNECT_GRACE_MS));
   });
 }
 

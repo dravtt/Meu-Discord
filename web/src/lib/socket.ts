@@ -4,6 +4,7 @@ import { addMessage, findChannel, get, patchServer, removeMessage, removeServer,
 import type { Channel, Member, Message, Relationship, Role, Server, VoiceState } from './types';
 import { notifyForMessage, notifyIncomingCall } from './notify';
 import { onRingStopped, useCall, useIncomingCall } from './voice';
+import { resumeCall } from './session';
 import { loadServerSounds, onSoundPlayed, useServerSounds } from './soundboard';
 
 function recipientName(channelId: string, userId: string) {
@@ -30,6 +31,7 @@ export function connectSocket() {
     for (const v of data.voiceStates) voiceStates[v.userId] = v;
     set({ voiceStates });
     if (data.rings?.[0]) ring(data.rings[0]);
+    resumeCall();
   });
   socket.on('call:ring', ring);
   socket.on('soundboard:play', onSoundPlayed);

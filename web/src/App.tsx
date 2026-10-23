@@ -13,6 +13,7 @@ import { ContextMenuHost } from './components/ContextMenu';
 import { SoundboardHost } from './components/Soundboard';
 import { installPushToTalk } from './lib/micGate';
 import { joinInviteFromUrl } from './components/modals/ServerModals';
+import { restoreView } from './lib/session';
 
 export function App() {
   const [token, setTokenState] = useState(getToken());
@@ -26,6 +27,7 @@ export function App() {
     bootstrap()
       .then(() => {
         if (cancelled) return;
+        restoreView();
         connectSocket();
         setReady(true);
         void requestNotificationPermission();

@@ -8,6 +8,7 @@ import { MicGate } from './micGate';
 import { setSpeaking, watchRemoteAudio } from './speaking';
 import { usePrefs } from './prefs';
 import { stopAllSounds } from './soundboard';
+import { unloading } from './session';
 
 /**
  * One box in the call grid per person. When they share their screen, the screen fills their box
@@ -181,7 +182,7 @@ export async function joinCall(channelId: string) {
       .on(RoomEvent.TrackMuted, syncTiles)
       .on(RoomEvent.TrackUnmuted, syncTiles)
       .on(RoomEvent.LocalTrackUnpublished, () => { useCall.setState({ screen: !!room?.localParticipant.isScreenShareEnabled }); sendState(); syncTiles(); })
-      .on(RoomEvent.Disconnected, () => { if (room) void leaveCall(); });
+      .on(RoomEvent.Disconnected, () => { if (room && !unloading) void leaveCall(); });
     await room.connect(url, token);
     useCall.setState({ connecting: false });
     playJoin();
