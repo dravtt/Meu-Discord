@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 import { findChannel, useStore } from '../lib/store';
 import { savePrefs, usePrefs } from '../lib/prefs';
 import { useCall } from '../lib/voice';
-import { BUILTIN_SOUNDS, loadServerSounds, playForCall, playLocal, useServerSounds, type Sound } from '../lib/soundboard';
+import { BUILTIN_SOUNDS, loadServerSounds, preloadBuiltins, playForCall, playLocal, useServerSounds, type Sound } from '../lib/soundboard';
 import { useClickOutside } from './ContextMenu';
 import { closeModal, confirmDialog, Dialog, openModal } from './Modal';
 
@@ -28,7 +28,7 @@ export const useSoundboardOpen = () => usePanel((s) => !!s);
 export function SoundboardHost() {
   const pos = usePanel();
   const inCall = useCall((s) => !!s.channelId);
-  useEffect(() => { if (!inCall) usePanel.setState(null, true); }, [inCall]);
+  useEffect(() => { if (!inCall) usePanel.setState(null, true); else preloadBuiltins(); }, [inCall]);
   if (!pos || !inCall) return null;
   return <SoundboardPanel x={pos.x} bottom={pos.bottom} />;
 }

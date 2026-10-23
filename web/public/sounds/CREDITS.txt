@@ -1,0 +1,13 @@
+Efeitos sonoros prontos do Nexo. Todos baixados do Pixabay (https://pixabay.com/sound-effects/),
+uso livre pela Licença de Conteúdo do Pixabay. Cortados e com volume igualado para o Nexo.
+
+buzina.mp3    "air horn" (waitwhatimsignedin, 273892)
+tambor.mp3    "rimshot joke funny" (freesound_community, 80325)
+palmas.mp3    "applause" (driken5482, 236785)
+grilos.mp3    "crickets" (blender_abstract, 395138)
+trombone.mp3  "wah wah sad trombone" (freesound_community, 6347)
+pato.mp3      "duck quack" (freesound_community, 40345)
+tada.mp3      "tada fanfare a" (freesound_community, 6313)
+boing.mp3     "boing spring mouth harp" (freesound_community, 103346)
+suspense.mp3  "waterphone suspense revelee" (alexis_gaming_cam, 342936)
+sino.mp3      "bell fx" (soundreality, 410608)
