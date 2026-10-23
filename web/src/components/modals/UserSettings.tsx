@@ -3,12 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { api, setToken } from '../../lib/api';
 import { useStore, set } from '../../lib/store';
-import { uploadImage } from '../../lib/upload';
 import { applyVoiceSettings, leaveCall, useCall, useMicLevel } from '../../lib/voice';
 import { audioConstraints, keyLabel, saveVoiceSettings, useVoiceSettings, type VoiceSettings } from '../../lib/voiceSettings';
 import { savePrefs, THEMES, usePrefs, type ServerNotify } from '../../lib/prefs';
 import { playMessage } from '../../lib/sounds';
-import { Avatar } from '../Avatar';
+import { ProfileEditor } from './ProfileEditor';
 import { closeModal } from '../Modal';
 
 type Tab = 'profile' | 'account' | 'appearance' | 'voice' | 'notifications';
@@ -16,9 +15,6 @@ type Tab = 'profile' | 'account' | 'appearance' | 'voice' | 'notifications';
 export function UserSettings() {
   const me = useStore((s) => s.me)!;
   const [tab, setTab] = useState<Tab>('profile');
-  const [displayName, setDisplayName] = useState(me.displayName);
-  const [bio, setBio] = useState(me.bio);
-  const [customStatus, setCustomStatus] = useState(me.customStatus);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -52,17 +48,7 @@ export function UserSettings() {
       <div className="settings-body">
         <button className="icon-btn close" onClick={closeModal}><X size={20} /></button>
         {tab === 'voice' ? <VoiceSettingsPanel /> : tab === 'appearance' ? <AppearancePanel /> : tab === 'notifications' ? <NotificationsPanel /> : tab === 'profile' ? (
-          <section>
-            <h2>Perfil</h2>
-            <div className="row gap"><Avatar user={me} size={72} />
-              <label>Avatar<input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) await save({ avatarUrl: await uploadImage(f) }); }} /></label>
-              {me.avatarUrl && <button className="link" onClick={() => save({ avatarUrl: null })}>Remover</button>}
-            </div>
-            <label>Nome de exibição<input value={displayName} maxLength={32} onChange={(e) => setDisplayName(e.target.value)} /></label>
-            <label>Status personalizado<input value={customStatus} maxLength={128} onChange={(e) => setCustomStatus(e.target.value)} placeholder="O que você está fazendo?" /></label>
-            <label>Sobre mim<textarea value={bio} maxLength={190} onChange={(e) => setBio(e.target.value)} /></label>
-            <button className="btn primary" onClick={() => save({ displayName, bio, customStatus })}>Salvar</button>
-          </section>
+          <ProfileEditor />
         ) : (
           <section>
             <h2>Minha conta</h2>

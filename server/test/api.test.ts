@@ -26,6 +26,22 @@ describe('auth', () => {
     const res = await api().patch('/api/users/@me').set(auth(ana)).send({ displayName: 'Ana', customStatus: 'codando' }).expect(200);
     expect(res.body).toMatchObject({ displayName: 'Ana', customStatus: 'codando' });
   });
+
+  it('saves profile style and rejects bad values', async () => {
+    const res = await api().patch('/api/users/@me').set(auth(ana)).send({
+      pronouns: 'ela/dela', profileColors: ['#ff0066', '#3300aa'], bannerUrl: '/uploads/b.png',
+      nameStyle: { font: 'pixel', effect: 'gradient', colors: ['#ffffff', '#00ffcc'] },
+    }).expect(200);
+    expect(res.body).toMatchObject({ pronouns: 'ela/dela', profileColors: ['#ff0066', '#3300aa'], bannerUrl: '/uploads/b.png', nameStyle: { font: 'pixel', effect: 'gradient', colors: ['#ffffff', '#00ffcc'] } });
+    // Other edits keep the style.
+    const again = await api().patch('/api/users/@me').set(auth(ana)).send({ bio: 'oi', bannerUrl: null }).expect(200);
+    expect(again.body).toMatchObject({ bannerUrl: null, nameStyle: { font: 'pixel' }, profileColors: ['#ff0066', '#3300aa'] });
+    await api().patch('/api/users/@me').set(auth(ana)).send({ profileColors: ['red'] }).expect(400);
+    await api().patch('/api/users/@me').set(auth(ana)).send({ profileColors: ['#000000', '#111111', '#222222'] }).expect(400);
+    await api().patch('/api/users/@me').set(auth(ana)).send({ nameStyle: { font: 'comic', effect: 'solid', colors: [] } }).expect(400);
+    await api().patch('/api/users/@me').set(auth(ana)).send({ bannerUrl: 'https://evil.example/x.png' }).expect(400);
+    await api().patch('/api/users/@me').set(auth(ana)).send({ nameStyle: { font: 'default', effect: 'solid', colors: [] }, profileColors: [] }).expect(200);
+  });
 });
 
 describe('servers, invites and channels', () => {

@@ -1,7 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import { API_BASE, api, getToken } from './api';
-import { addMessage, findChannel, get, patchServer, removeMessage, removeServer, set, updateMessage, upsertMember, upsertRole, upsertServer } from './store';
-import type { Channel, Member, Message, Relationship, Role, Server, VoiceState } from './types';
+import { addMessage, applyUserUpdate, findChannel, get, patchServer, removeMessage, removeServer, set, updateMessage, upsertMember, upsertRole, upsertServer } from './store';
+import type { Channel, Member, Message, Relationship, Role, Server, User, VoiceState } from './types';
 import { notifyForMessage, notifyIncomingCall } from './notify';
 import { onRingStopped, useCall, useIncomingCall } from './voice';
 import { resumeCall } from './session';
@@ -92,6 +92,8 @@ export function connectSocket() {
   socket.on('presence', ({ userId, status, customStatus }) => {
     set((s) => ({ presence: { ...s.presence, [userId]: { status, customStatus } } }));
   });
+
+  socket.on('user:update', (u: User) => applyUserUpdate(u));
 
   socket.on('server:create', (srv: Server) => upsertServer(srv));
   socket.on('server:update', (srv: Partial<Server> & { id: string }) => patchServer(srv.id, (old) => ({ ...old, ...srv })));

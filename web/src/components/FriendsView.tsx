@@ -7,6 +7,7 @@ import { Avatar, STATUS_LABEL } from './Avatar';
 import { confirmDialog, openModal } from './Modal';
 import { ProfileCard } from './ProfileCard';
 import { userMenuProps } from './ContextMenu';
+import { StyledName } from '../lib/nameStyle';
 
 type Tab = 'online' | 'all' | 'pending' | 'blocked' | 'add';
 
@@ -57,7 +58,7 @@ function FriendRow({ r }: { r: Relationship }) {
     <div className="friend-row">
       <button className="friend-info" {...userMenuProps(r.user.id)} onClick={() => openModal(<ProfileCard userId={r.user.id} serverId={null} />)}>
         <Avatar user={r.user} size={36} showStatus />
-        <span><strong>{r.user.displayName}</strong> <small className="muted">{r.user.username}</small><br />
+        <span><strong><StyledName user={r.user}>{r.user.displayName}</StyledName></strong> <small className="muted">{r.user.username}</small><br />
           <small className="muted">{r.type === 'incoming' ? 'Pedido de amizade recebido' : r.type === 'outgoing' ? 'Pedido de amizade enviado' : r.type === 'blocked' ? 'Bloqueado' : presence?.customStatus || STATUS_LABEL[presence?.status ?? 'offline']}</small></span>
       </button>
       <div className="row gap">

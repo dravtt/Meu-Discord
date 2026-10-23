@@ -119,11 +119,25 @@ export async function broadcastPresence(userId: string) {
   const user = await one<{ status: string; custom_status: string }>('SELECT status, custom_status FROM users WHERE id = $1', [userId]);
   if (!user) return;
   const payload = { userId, status: await visibleStatus(userId, user.status), customStatus: user.custom_status };
+  io.to(await audienceOf(userId)).emit('presence', payload);
+}
+
+/** Rooms of everyone who can see this user: their servers, friends and themselves. */
+async function audienceOf(userId: string, withDms = false) {
   const rooms = new Set<string>();
   for (const s of await query('SELECT server_id FROM members WHERE user_id = $1', [userId])) rooms.add(`server:${s.server_id}`);
   for (const f of await query("SELECT target_id FROM relationships WHERE user_id = $1 AND type = 'friend'", [userId])) rooms.add(`user:${f.target_id}`);
+  if (withDms) {
+    for (const r of await query('SELECT DISTINCT o.user_id FROM dm_recipients d JOIN dm_recipients o ON o.channel_id = d.channel_id WHERE d.user_id = $1', [userId])) rooms.add(`user:${r.user_id}`);
+  }
   rooms.add(`user:${userId}`);
-  io.to([...rooms]).emit('presence', payload);
+  return [...rooms];
+}
+
+/** Tells everyone who can see this user that their profile (name, avatar, banner, style…) changed. */
+export async function broadcastUserUpdate(userId: string, user: unknown) {
+  if (!io) return;
+  io.to(await audienceOf(userId, true)).emit('user:update', user);
 }
 
 export function emitToUser(userId: string, event: string, payload: unknown) {

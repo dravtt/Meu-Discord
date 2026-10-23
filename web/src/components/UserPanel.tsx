@@ -11,6 +11,7 @@ import type { Status } from '../lib/types';
 import { Avatar, STATUS_LABEL } from './Avatar';
 import { openModal } from './Modal';
 import { UserSettings } from './modals/UserSettings';
+import { StyledName } from '../lib/nameStyle';
 
 export function UserPanel() {
   const me = useStore((s) => s.me);
@@ -42,7 +43,7 @@ export function UserPanel() {
       <button className={`me ${speaking ? 'speaking' : ''}`} onClick={() => setMenu(!menu)} title="Alterar status">
         <Avatar user={me} size={32} showStatus />
         <span className="me-names">
-          <strong>{me.displayName}</strong>
+          <strong><StyledName user={me}>{me.displayName}</StyledName></strong>
           <small>{me.customStatus || STATUS_LABEL[me.status]}</small>
         </span>
       </button>

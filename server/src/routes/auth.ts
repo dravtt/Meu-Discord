@@ -5,7 +5,7 @@ import { one } from '../db.js';
 import { requireAuth, signToken, uid } from '../auth.js';
 import { HttpError, notFound } from '../errors.js';
 import { USER_COLUMNS, publicUser, type UserRow } from '../serializers.js';
-import { broadcastPresence } from '../realtime.js';
+import { broadcastPresence, broadcastUserUpdate } from '../realtime.js';
 
 export const authRouter = Router();
 
@@ -53,13 +53,28 @@ authRouter.put('/users/:id/note', requireAuth, async (req, res) => {
   res.json({ note });
 });
 
+/** Only our own uploaded files (also keeps quotes out of the CSS url() the banner is drawn with). */
+const uploadUrl = z.string().max(200).regex(/^\/uploads\/[\w.-]+$/);
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+/** Kept in sync with web/src/lib/nameStyle.ts. */
+const NAME_FONTS = ['default', 'rounded', 'serif', 'mono', 'pixel', 'script', 'display', 'future'] as const;
+const NAME_EFFECTS = ['solid', 'gradient', 'neon', 'outline'] as const;
+
 authRouter.patch('/users/@me', requireAuth, async (req, res) => {
   const body = z.object({
     displayName: z.string().trim().min(1).max(32).optional(),
-    avatarUrl: z.string().max(500).nullable().optional(),
+    avatarUrl: uploadUrl.nullable().optional(),
     bio: z.string().max(190).optional(),
     customStatus: z.string().max(128).optional(),
     status: z.enum(['online', 'idle', 'dnd', 'invisible']).optional(),
+    bannerUrl: uploadUrl.nullable().optional(),
+    pronouns: z.string().trim().max(40).optional(),
+    profileColors: z.array(hexColor).max(2).optional(),
+    nameStyle: z.object({
+      font: z.enum(NAME_FONTS),
+      effect: z.enum(NAME_EFFECTS),
+      colors: z.array(hexColor).max(2),
+    }).optional(),
     currentPassword: z.string().optional(),
     newPassword: password.optional(),
   }).parse(req.body);
@@ -75,11 +90,21 @@ authRouter.patch('/users/@me', requireAuth, async (req, res) => {
        avatar_url = CASE WHEN $3::boolean THEN $4 ELSE avatar_url END,
        bio = COALESCE($5, bio),
        custom_status = COALESCE($6, custom_status),
-       status = COALESCE($7, status)
+       status = COALESCE($7, status),
+       banner_url = CASE WHEN $8::boolean THEN $9 ELSE banner_url END,
+       pronouns = COALESCE($10, pronouns),
+       profile_colors = COALESCE($11, profile_colors),
+       name_font = COALESCE($12, name_font),
+       name_effect = COALESCE($13, name_effect),
+       name_colors = COALESCE($14, name_colors)
      WHERE id = $1 RETURNING ${USER_COLUMNS}`,
-    [uid(req), body.displayName ?? null, body.avatarUrl !== undefined, body.avatarUrl ?? null, body.bio ?? null, body.customStatus ?? null, body.status ?? null]);
+    [uid(req), body.displayName ?? null, body.avatarUrl !== undefined, body.avatarUrl ?? null, body.bio ?? null, body.customStatus ?? null, body.status ?? null,
+      body.bannerUrl !== undefined, body.bannerUrl ?? null, body.pronouns ?? null, body.profileColors ?? null,
+      body.nameStyle?.font ?? null, body.nameStyle?.effect ?? null, body.nameStyle?.colors ?? null]);
   await broadcastPresence(uid(req));
-  res.json({ ...(await publicUser(user!)), status: user!.status });
+  const pub = await publicUser(user!);
+  await broadcastUserUpdate(uid(req), pub);
+  res.json({ ...pub, status: user!.status });
 });
 
 authRouter.get('/users/:id', requireAuth, async (req, res) => {

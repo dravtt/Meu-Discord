@@ -16,6 +16,7 @@ import { ProfileCard } from './ProfileCard';
 import { userMenuProps } from './ContextMenu';
 import { NewGroupModal } from './modals/NewGroupModal';
 import { GroupIcon, GroupSettings } from './modals/GroupSettings';
+import { StyledName } from '../lib/nameStyle';
 
 const EMPTY: Message[] = [];
 
@@ -202,7 +203,7 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
             {(!grouped || showDay) && (
               <div className="message-meta">
                 <button className="author" style={{ color: memberColor(serverId, m.author.id) }} {...userMenuProps(m.author.id, serverId)} onClick={() => openModal(<ProfileCard userId={m.author.id} serverId={serverId} />)}>
-                  {memberName(serverId, m.author)}
+                  <StyledName user={m.author}>{memberName(serverId, m.author)}</StyledName>
                 </button>
                 <time>{formatTime(m.createdAt)}</time>
               </div>

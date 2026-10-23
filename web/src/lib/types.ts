@@ -8,7 +8,15 @@ export interface User {
   bio: string;
   customStatus: string;
   status: Status;
+  createdAt?: string;
+  bannerUrl?: string | null;
+  pronouns?: string;
+  /** Profile theme: one color, or two for a gradient. */
+  profileColors?: string[];
+  nameStyle?: NameStyle;
 }
+
+export interface NameStyle { font: string; effect: string; colors: string[] }
 
 export interface Channel {
   id: string;

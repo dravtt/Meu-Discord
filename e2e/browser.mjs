@@ -271,6 +271,27 @@ await step('Aparência, notificações e voz', async () => {
   await ana.locator('.notify-server select').first().selectOption('mentions');
   await ana.keyboard.press('Escape');
 });
+await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async () => {
+  await ana.locator('.user-panel').getByTitle('Configurações').click();
+  await ana.getByLabel('Pronomes').fill('ela/dela');
+  await ana.getByLabel('Trocar banner').setInputFiles({ name: 'banner.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAECAIAAAA8r+mnAAAAT0lEQVR4nA3JMQHAMAgAwcphiRIWbOAAB9hgQQnL20BJmlvvu8IKI7SQggsqHOG7xhpjtJGGG2ocexFsMEEHGXigwYkXxRZTdJGFF1qc4geWCjhBjoZD5QAAAABJRU5ErkJggg==', 'base64') });
+  await ana.getByRole('button', { name: 'Remover banner' }).waitFor();
+  await ana.getByRole('button', { name: 'Duas cores', exact: true }).click();
+  await ana.getByRole('button', { name: 'Fonte Pixel' }).click();
+  await ana.getByRole('button', { name: 'Gradiente', exact: true }).click();
+  await ana.locator('.preview .pc-name .styled-name.font-pixel.effect-gradient').waitFor();
+  await ana.screenshot({ path: `${SHOTS}/15-profile-editor.png` });
+  await ana.getByRole('button', { name: 'Salvar alterações' }).click();
+  await ana.getByText('Perfil salvo!').waitFor();
+  await ana.keyboard.press('Escape');
+  await bia.getByRole('button', { name: 'geral', exact: true }).click();
+  await bia.locator('.member .styled-name.font-pixel.effect-gradient', { hasText: 'Ana' }).waitFor();
+  await bia.locator('.message .author .styled-name.font-pixel', { hasText: 'Ana' }).first().click();
+  await bia.locator('.profile-card.themed', { hasText: 'ela/dela' }).waitFor();
+  await new Promise((r) => setTimeout(r, 400));
+  await bia.screenshot({ path: `${SHOTS}/16-profile-card.png` });
+  await bia.keyboard.press('Escape');
+});
 await step('Presença: Bia fica offline para Ana ao sair', async () => {
   await ana.getByRole('button', { name: 'geral', exact: true }).click();
   await bia.context().close();
