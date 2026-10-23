@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Headphones, HeadphoneOff, Maximize2, Mic, Music, MicOff, Minimize2, Monitor, MonitorOff, MonitorUp, PhoneOff, Video, VideoOff, Volume2 } from 'lucide-react';
+import { Headphones, HeadphoneOff, Maximize2, Mic, PartyPopper, MicOff, Minimize2, Monitor, MonitorOff, MonitorUp, PhoneOff, Video, VideoOff, Volume2 } from 'lucide-react';
 import type { Track } from 'livekit-client';
 import { useStore, findChannel, dmName } from '../lib/store';
 import { joinCall, leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall, type Tile } from '../lib/voice';
@@ -101,7 +101,7 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
             {call.screen ? <MonitorOff size={22} /> : <MonitorUp size={22} />}
           </button>
         )}
-        <button className={`round ${soundboard ? 'on' : ''}`} title="Efeitos sonoros" onClick={toggleSoundboard}><Music size={22} /></button>
+        <button className={`round ${soundboard ? 'on' : ''}`} title="Efeitos sonoros" onClick={toggleSoundboard}><PartyPopper size={22} /></button>
         <button className="round" title={isFull ? 'Sair da tela cheia' : 'Tela cheia'} onClick={() => toggleFullscreen(stageRef.current)}>
           {isFull ? <Minimize2 size={22} /> : <Maximize2 size={22} />}
         </button>
