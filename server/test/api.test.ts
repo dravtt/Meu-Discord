@@ -333,6 +333,13 @@ describe('DM close, notes and server order', () => {
     anaSocket.close();
     const msgs = (await api().get(`/api/channels/${g.id}/messages`).set(auth(bia)).expect(200)).body;
     await api().patch(`/api/channels/${g.id}/messages/${msgs[0].id}`).set(auth(fabi)).send({ content: 'x' }).expect(403);
+    const biaSocket = await connect(bia);
+    const icon = nextEvent(biaSocket, 'message:create');
+    const upd = await api().patch(`/api/dms/${g.id}`).set(auth(fabi)).send({ iconUrl: '/uploads/x.png' }).expect(200);
+    expect(upd.body.iconUrl).toBe('/uploads/x.png');
+    expect(await icon).toMatchObject({ kind: 'group_icon' });
+    biaSocket.close();
+    await api().patch(`/api/dms/${g.id}`).set(auth(fabi)).send({ iconUrl: 'https://evil.example/x.png' }).expect(400);
   });
 
   it('keeps private notes and the server order', async () => {

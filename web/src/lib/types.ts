@@ -22,6 +22,8 @@ export interface Channel {
   lastMessageAt: string | null;
   permissions?: number;
   recipients?: User[];
+  /** Group DM picture. */
+  iconUrl?: string | null;
 }
 
 export interface Role {
@@ -77,7 +79,7 @@ export interface Message {
   author: User;
   content: string;
   /** 'default' for normal messages; the rest are group notices like someone leaving. */
-  kind?: 'default' | 'member_add' | 'member_remove' | 'member_leave' | 'group_name';
+  kind?: 'default' | 'member_add' | 'member_remove' | 'member_leave' | 'group_name' | 'group_icon';
   createdAt: string;
   editedAt: string | null;
   pinned: boolean;

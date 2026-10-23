@@ -25,7 +25,7 @@ async function notifyRecipients(channelId: string, event = 'dm:update') {
   return payload;
 }
 
-type SystemKind = 'member_add' | 'member_remove' | 'member_leave' | 'group_name';
+type SystemKind = 'member_add' | 'member_remove' | 'member_leave' | 'group_name' | 'group_icon';
 
 /** Posts a notice like "Ana saiu do grupo." in a group DM so everyone still in it sees what changed. */
 async function systemMessage(channelId: string, authorId: string, kind: SystemKind, content: string) {
@@ -83,10 +83,19 @@ dmsRouter.post('/dms', async (req, res) => {
 dmsRouter.patch('/dms/:channelId', async (req, res) => {
   const c = await getChannel(String(req.params.channelId));
   if (c.type !== 'group_dm' || !(await one('SELECT 1 FROM dm_recipients WHERE channel_id = $1 AND user_id = $2', [c.id, uid(req)]))) throw notFound();
-  const { name } = z.object({ name: z.string().max(100) }).parse(req.body);
-  await one('UPDATE channels SET name = $2 WHERE id = $1', [c.id, name]);
+  const body = z.object({
+    name: z.string().trim().max(100).optional(),
+    iconUrl: z.string().max(500).regex(/^\/uploads\//).nullable().optional(),
+  }).parse(req.body);
+  await one('UPDATE channels SET name = COALESCE($2, name), icon_url = CASE WHEN $3 THEN $4 ELSE icon_url END WHERE id = $1',
+    [c.id, body.name ?? null, body.iconUrl !== undefined, body.iconUrl ?? null]);
   const payload = await notifyRecipients(c.id);
-  if (name !== c.name) await systemMessage(c.id, uid(req), 'group_name', name ? `mudou o nome do grupo para ${name}.` : 'removeu o nome do grupo.');
+  if (body.name !== undefined && body.name !== c.name) {
+    await systemMessage(c.id, uid(req), 'group_name', body.name ? `mudou o nome do grupo para ${body.name}.` : 'removeu o nome do grupo.');
+  }
+  if (body.iconUrl !== undefined && body.iconUrl !== (c as any).icon_url) {
+    await systemMessage(c.id, uid(req), 'group_icon', body.iconUrl ? 'mudou a foto do grupo.' : 'removeu a foto do grupo.');
+  }
   res.json(payload);
 });
 

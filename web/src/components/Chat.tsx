@@ -1,4 +1,4 @@
-import { AtSign, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X, UserPlus, UserMinus } from 'lucide-react';
+import { AtSign, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X, UserPlus, UserMinus, Image as ImageIcon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore, set, get, dmName, memberName, memberColor, findChannel } from '../lib/store';
 import { api, assetUrl } from '../lib/api';
@@ -15,6 +15,7 @@ import { openModal, confirmDialog, Dialog, closeModal } from './Modal';
 import { ProfileCard } from './ProfileCard';
 import { userMenuProps } from './ContextMenu';
 import { NewGroupModal } from './modals/NewGroupModal';
+import { GroupIcon, GroupSettings } from './modals/GroupSettings';
 
 const EMPTY: Message[] = [];
 
@@ -96,8 +97,10 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
   return (
     <section className="chat">
       <header className="chat-header">
-        <span className="channel-icon">{icon}</span>
-        <h3>{title}</h3>
+        {channel.type !== 'group_dm' && <span className="channel-icon">{icon}</span>}
+        {channel.type === 'group_dm'
+          ? <button className="group-title" title="Editar grupo" onClick={() => openModal(<GroupSettings channelId={channel.id} />)}><GroupIcon channel={channel} size={24} /><h3>{title}</h3><Pencil size={14} className="group-title-edit" /></button>
+          : <h3>{title}</h3>}
         {channel.topic && <span className="topic" title={channel.topic}>{channel.topic}</span>}
         <div className="header-actions">
           {isDm && callChannel !== channel.id && <button className="icon-btn" title="Iniciar chamada" onClick={() => joinCall(channel.id)}><Phone size={20} /></button>}
@@ -116,7 +119,7 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
       <div className="messages" ref={scroller} onScroll={onScroll}>
         {loaded && !hasMore && (
           <div className="channel-start">
-            <div className="start-icon">{icon}</div>
+            {channel.type === 'group_dm' ? <GroupIcon channel={channel} size={68} /> : <div className="start-icon">{icon}</div>}
             <h2>{isDm ? title : `Bem-vindo a ${isThread ? "" : "#"}${title}!`}</h2>
             <p className="muted">{isDm ? 'Este é o começo da sua conversa.' : 'Este é o começo deste canal.'}</p>
           </div>
@@ -166,7 +169,7 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
 
   const day = showDay && <div className="day-divider"><span>{new Date(m.createdAt).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>;
   if (m.kind && m.kind !== 'default') {
-    const Icon = m.kind === 'member_leave' || m.kind === 'member_remove' ? UserMinus : m.kind === 'member_add' ? UserPlus : Pencil;
+    const Icon = m.kind === 'member_leave' || m.kind === 'member_remove' ? UserMinus : m.kind === 'member_add' ? UserPlus : m.kind === 'group_icon' ? ImageIcon : Pencil;
     return (
       <>
         {day}

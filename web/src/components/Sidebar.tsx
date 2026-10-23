@@ -13,8 +13,9 @@ import { ServerSettings } from './modals/ServerSettings';
 import { ChannelSettings } from './modals/ChannelSettings';
 import { NewGroupModal } from './modals/NewGroupModal';
 import { UserPanel, VoiceBar } from './UserPanel';
-import { openMenu, ServerMenu, useClickOutside, UserMenu } from './ContextMenu';
+import { MenuItem, MenuSep, openMenu, ServerMenu, useClickOutside, UserMenu } from './ContextMenu';
 import { useSpeaking } from '../lib/speaking';
+import { GroupIcon, GroupSettings, leaveGroup } from './modals/GroupSettings';
 
 export function Sidebar() {
   const view = useStore((s) => s.view);
@@ -52,9 +53,9 @@ function HomeSidebar() {
           const rs = readStates[dm.id];
           return (
             <div key={dm.id} className={`dm-item ${activeDm === dm.id ? 'active' : ''} ${rs?.unread ? 'unread' : ''}`}
-              onContextMenu={other ? (e) => openMenu(e, <UserMenu userId={other.id} />) : undefined}>
+              onContextMenu={(e) => openMenu(e, other ? <UserMenu userId={other.id} /> : <GroupMenu dm={dm} />)}>
               <button className="dm-open" onClick={() => set({ view: { kind: 'home', dmId: dm.id }, openThreadId: null })}>
-                {other ? <Avatar user={other} size={32} showStatus /> : <span className="group-icon"><Users size={18} /></span>}
+                {other ? <Avatar user={other} size={32} showStatus /> : <GroupIcon channel={dm} />}
                 <span className="dm-text">
                   <span className="dm-name">{dmName(dm, me?.id)}</span>
                   {!other && <small>{dm.recipients?.length ?? 0} membros</small>}
@@ -75,9 +76,19 @@ function HomeSidebar() {
 /** 1:1 conversations just hide (they come back with the next message); groups are left. */
 function closeDm(dm: Channel, meId: string | undefined) {
   if (dm.type === 'dm') { void api(`/dms/${dm.id}`, { method: 'DELETE' }); return; }
-  confirmDialog('Sair do grupo', `Sair de ${dmName(dm, meId)}? Você não vai mais receber as mensagens desse grupo.`, 'Sair do grupo', async () => {
-    await api(`/dms/${dm.id}/recipients/@me`, { method: 'DELETE' });
-  });
+  leaveGroup(dm, dmName(dm, meId));
+}
+
+function GroupMenu({ dm }: { dm: Channel }) {
+  const me = useStore((s) => s.me);
+  return (
+    <>
+      <MenuItem label="Editar grupo" onClick={() => openModal(<GroupSettings channelId={dm.id} />)} />
+      <MenuItem label="Adicionar amigos" onClick={() => openModal(<NewGroupModal from={dm} />)} />
+      <MenuSep />
+      <MenuItem label="Sair do grupo" danger onClick={() => leaveGroup(dm, dmName(dm, me?.id))} />
+    </>
+  );
 }
 
 function VoiceUser({ serverId, userId, user, flags }: { serverId: string; userId: string; user: any; flags: React.ReactNode }) {

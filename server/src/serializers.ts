@@ -42,6 +42,7 @@ export function serializeChannel(c: any) {
     topic: c.topic,
     position: c.position,
     ownerId: c.owner_id,
+    iconUrl: c.icon_url ?? null,
     lastMessageAt: c.last_message_at,
   };
 }

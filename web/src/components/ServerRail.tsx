@@ -7,6 +7,7 @@ import { closeModal, Dialog, openModal } from './Modal';
 import { AddServerModal } from './modals/ServerModals';
 import { Avatar } from './Avatar';
 import { openMenu, ServerMenu } from './ContextMenu';
+import { GroupIcon } from './modals/GroupSettings';
 
 export function ServerRail() {
   const servers = useStore(useShallow((s) => s.serverOrder.map((id) => s.servers[id]).filter(Boolean)));
@@ -31,7 +32,7 @@ export function ServerRail() {
         return (
           <RailItem key={dm.id} label={name} badge={readStates[dm.id]?.mentions} className="rail-dm"
             onClick={() => set({ view: { kind: 'home', dmId: dm.id }, openThreadId: null })}>
-            {other ? <Avatar user={other} size={48} /> : <span>{initials(name)}</span>}
+            {other ? <Avatar user={other} size={48} /> : <GroupIcon channel={dm} size={48} />}
           </RailItem>
         );
       })}
