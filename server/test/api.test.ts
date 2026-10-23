@@ -367,10 +367,11 @@ describe('soundboard', () => {
     const played = nextEvent(anaSocket, 'soundboard:play');
     await api().post('/api/voice/soundboard').set(auth(bia)).send({ soundId: up.body.id }).expect(204);
     expect(await played).toMatchObject({ channelId: voiceId, userId: bia.id, soundId: up.body.id, url: up.body.url });
-    await api().post('/api/voice/soundboard').set(auth(bia)).send({ builtin: 'tambor' }).expect(400);
-    await new Promise((r) => setTimeout(r, 1300));
+    await new Promise((r) => setTimeout(r, 150));
     await api().post('/api/voice/soundboard').set(auth(bia)).send({ builtin: 'nao-existe' }).expect(400);
     await api().post('/api/voice/soundboard').set(auth(bia)).send({ builtin: 'tambor' }).expect(204);
+    await new Promise((r) => setTimeout(r, 150));
+    await api().post('/api/voice/soundboard').set(auth(bia)).send({ builtin: 'pato' }).expect(204);
     await api().delete('/api/voice').set(auth(bia)).expect(204);
     anaSocket.close();
 

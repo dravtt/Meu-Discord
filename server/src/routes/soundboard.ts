@@ -82,7 +82,8 @@ soundboardRouter.post('/voice/soundboard', async (req, res) => {
   const state = voiceStateOf(me);
   if (!state) throw badRequest('Entre numa chamada para tocar sons');
   const now = Date.now();
-  if (now - (lastPlay.get(me) ?? 0) < 1200) throw badRequest('Calma! Espere um pouquinho para tocar outro som');
+  // Only stops scripted floods; a person clicking fast is never blocked.
+  if (now - (lastPlay.get(me) ?? 0) < 100) throw badRequest('Calma! Muitos sons ao mesmo tempo');
 
   let payload: Record<string, unknown>;
   if (body.soundId) {
