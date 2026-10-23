@@ -4,6 +4,7 @@ const {
 const path = require('node:path');
 const settings = require('./settings');
 const { checkForUpdates } = require('./updater');
+const { runningGame } = require('./games');
 
 const ASSETS = path.join(__dirname, '..', 'assets');
 const PROTOCOL = 'nexo';
@@ -198,6 +199,8 @@ ipcMain.on('nexo:badge', (event, count) => {
   }
   tray?.setToolTip(n > 0 ? `Voka — ${n} menções` : 'Voka');
 });
+
+ipcMain.handle('nexo:running-game', (event) => (fromApp(event) ? runningGame() : null));
 
 const EDITABLE = new Set(['minimizeToTray', 'startMinimized', 'hardwareAcceleration']);
 ipcMain.handle('nexo:get-settings', (event) => {

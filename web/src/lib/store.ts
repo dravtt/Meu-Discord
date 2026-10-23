@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Channel, Member, Message, ReadState, Relationship, Role, Server, Status, User, VoiceState } from './types';
+import type { Activity, Channel, Member, Message, ReadState, Relationship, Role, Server, Status, User, VoiceState } from './types';
 
 export type View = { kind: 'home'; dmId?: string } | { kind: 'server'; serverId: string; channelId?: string };
 
@@ -14,7 +14,7 @@ interface State {
   /** Whether older history exists beyond what is loaded. */
   hasMore: Record<string, boolean>;
   readStates: Record<string, ReadState>;
-  presence: Record<string, { status: Status; customStatus: string }>;
+  presence: Record<string, { status: Status; customStatus: string; activity?: Activity | null }>;
   voiceStates: Record<string, VoiceState>;
   typing: Record<string, Record<string, number>>;
   threads: Record<string, Channel>;
@@ -53,7 +53,7 @@ export function upsertServer(server: Server) {
     const voiceStates = { ...s.voiceStates };
     for (const v of server.voiceStates ?? []) voiceStates[v.userId] = v;
     const presence = { ...s.presence };
-    for (const m of server.members) presence[m.user.id] = { status: m.user.status, customStatus: m.user.customStatus };
+    for (const m of server.members) presence[m.user.id] = { status: m.user.status, customStatus: m.user.customStatus, activity: m.user.activity };
     return {
       servers: { ...s.servers, [server.id]: server },
       serverOrder: s.serverOrder.includes(server.id) ? s.serverOrder : [...s.serverOrder, server.id],
@@ -83,7 +83,7 @@ export function upsertMember(member: Member) {
       ? srv.members.map((m) => (m.user.id === member.user.id ? member : m))
       : [...srv.members, member],
   }));
-  set((s) => ({ presence: { ...s.presence, [member.user.id]: { status: member.user.status, customStatus: member.user.customStatus } } }));
+  set((s) => ({ presence: { ...s.presence, [member.user.id]: { status: member.user.status, customStatus: member.user.customStatus, activity: member.user.activity } } }));
 }
 
 export function upsertRole(role: Role) {
@@ -182,3 +182,23 @@ export function applyUserUpdate(u: User) {
     };
   });
 }
+
+/** Any copy we hold of a user (ourselves, server members, friends, DM recipients, loaded messages). */
+export function findUser(userId: string): User | undefined {
+  const s = get();
+  if (s.me?.id === userId) return s.me;
+  for (const srv of Object.values(s.servers)) {
+    const m = srv.members.find((x) => x.user.id === userId);
+    if (m) return m.user;
+  }
+  const r = s.relationships.find((x) => x.user.id === userId);
+  if (r) return r.user;
+  for (const dm of Object.values(s.dms)) {
+    const u = dm.recipients?.find((x) => x.id === userId);
+    if (u) return u;
+  }
+  return undefined;
+}
+
+/** Live version of findUser for components. */
+export const useUser = (userId: string) => useStore(() => findUser(userId));

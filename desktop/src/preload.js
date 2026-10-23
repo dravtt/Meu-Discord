@@ -13,5 +13,6 @@ contextBridge.exposeInMainWorld('nexoNative', {
   getSettings: () => ipcRenderer.invoke('nexo:get-settings'),
   setSetting: (key, value) => ipcRenderer.invoke('nexo:set-setting', key, value),
   getScreenSources: () => ipcRenderer.invoke('nexo:screen-sources'),
+  runningGame: () => ipcRenderer.invoke('nexo:running-game'),
   pickScreenSource: (id, audio) => ipcRenderer.invoke('nexo:screen-pick', String(id), !!audio),
 });

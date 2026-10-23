@@ -8,8 +8,9 @@ import type { NameStyle, User, Widget } from '../../lib/types';
 import { WidgetEditor } from './WidgetEditor';
 import { Mural } from '../Mural';
 import { ProfileView } from '../ProfileCard';
+import { ImageCropper } from './ImageCropper';
 
-const SWATCHES = ['#14b8a6', '#22c55e', '#0ea5e9', '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#f59e0b', '#ffffff', '#64748b', '#0b0b0f'];
+const SWATCHES = ['#7533fb', '#14b8a6', '#22c55e', '#0ea5e9', '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#f59e0b', '#ffffff', '#64748b', '#0b0b0f', '#000000'];
 
 interface Draft {
   displayName: string; pronouns: string; customStatus: string; bio: string;
@@ -28,12 +29,21 @@ export function ProfileEditor() {
   const [draft, setDraft] = useState<Draft>(() => draftOf(me));
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [crop, setCrop] = useState<{ field: 'avatarUrl' | 'bannerUrl'; file: File } | null>(null);
   const edit = (patch: Partial<Draft>) => { setDraft((d) => ({ ...d, ...patch })); setMsg(null); };
   const editName = (patch: Partial<NameStyle>) => setDraft((d) => ({ ...d, nameStyle: { ...d.nameStyle, ...patch } }));
   const dirty = JSON.stringify(draft) !== JSON.stringify(draftOf(me));
 
+  /** Pictures go through the cropper first; animated GIFs are sent as they are, so they keep moving. */
+  function pick(field: 'avatarUrl' | 'bannerUrl', file: File | undefined) {
+    if (!file) return;
+    if (file.type === 'image/gif') void upload(field, file);
+    else setCrop({ field, file });
+  }
+
   async function upload(field: 'avatarUrl' | 'bannerUrl', file: File | undefined) {
     if (!file) return;
+    setCrop(null);
     setBusy(field);
     try { edit({ [field]: await uploadImage(file) }); } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } finally { setBusy(null); }
   }
@@ -47,7 +57,7 @@ export function ProfileEditor() {
       const body = Object.fromEntries(Object.entries({ ...draft, widgets, displayName: draft.displayName.trim() || me.displayName })
         .filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(before[k])));
       const updated = await api<User>('/users/@me', { method: 'PATCH', body });
-      set((s) => ({ me: updated, presence: { ...s.presence, [updated.id]: { status: updated.status, customStatus: updated.customStatus } } }));
+      set((s) => ({ me: updated, presence: { ...s.presence, [updated.id]: { ...s.presence[updated.id], status: updated.status, customStatus: updated.customStatus } } }));
       setDraft(draftOf(updated));
       setMsg({ ok: true, text: 'Perfil salvo!' });
     } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } finally { setBusy(null); }
@@ -80,13 +90,13 @@ export function ProfileEditor() {
 
           <div className="pe-block">
             <h3>Avatar e banner</h3>
-            <p className="muted">PNG, JPG, GIF ou WEBP de até 8 MB. O banner fica melhor em 600 × 240.</p>
+            <p className="muted">PNG, JPG, GIF ou WEBP. Depois de escolher, você ajusta o zoom e a posição antes de aplicar.</p>
             <div className="pe-images">
               <span className="btn small pe-file"><ImagePlus size={14} /> {busy === 'avatarUrl' ? 'Enviando…' : 'Trocar avatar'}
-                <input type="file" accept="image/*" aria-label="Trocar avatar" onChange={(e) => void upload('avatarUrl', e.target.files?.[0])} /></span>
+                <input type="file" accept="image/*" aria-label="Trocar avatar" onChange={(e) => { pick('avatarUrl', e.target.files?.[0]); e.target.value = ''; }} /></span>
               {draft.avatarUrl && <button className="btn small ghost" onClick={() => edit({ avatarUrl: null })}>Remover avatar</button>}
               <span className="btn small pe-file"><ImagePlus size={14} /> {busy === 'bannerUrl' ? 'Enviando…' : 'Trocar banner'}
-                <input type="file" accept="image/*" aria-label="Trocar banner" onChange={(e) => void upload('bannerUrl', e.target.files?.[0])} /></span>
+                <input type="file" accept="image/*" aria-label="Trocar banner" onChange={(e) => { pick('bannerUrl', e.target.files?.[0]); e.target.value = ''; }} /></span>
               {draft.bannerUrl && <button className="btn small ghost" onClick={() => edit({ bannerUrl: null })}>Remover banner</button>}
             </div>
           </div>
@@ -150,6 +160,7 @@ export function ProfileEditor() {
         </div>
       </div>
 
+      {crop && <ImageCropper file={crop.file} shape={crop.field === 'avatarUrl' ? 'avatar' : 'banner'} onCancel={() => setCrop(null)} onDone={(f) => void upload(crop.field, f)} />}
       {(dirty || msg) && (
         <div className="pe-save-bar">
           <span className={msg ? (msg.ok ? 'ok' : 'error') : ''}>{msg ? msg.text : 'Você tem alterações não salvas.'}</span>

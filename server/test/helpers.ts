@@ -29,7 +29,7 @@ export const api = () => request(http);
 export interface TestUser { id: string; token: string; username: string }
 
 export async function register(username: string): Promise<TestUser> {
-  const res = await api().post('/api/auth/register').send({ username, password: 'senha-forte-123' }).expect(201);
+  const res = await api().post('/api/auth/register').send({ username, password: 'senha-forte-123', email: `${username}@teste.com.br`, birthdate: '2000-01-01' }).expect(201);
   return { id: res.body.user.id, token: res.body.token, username };
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Headphones, HeadphoneOff, Maximize2, Mic, PartyPopper, MicOff, Minimize2, Monitor, MonitorOff, MonitorUp, PhoneOff, Video, VideoOff, Volume2 } from 'lucide-react';
 import type { Track } from 'livekit-client';
-import { useStore, findChannel, dmName } from '../lib/store';
+import { useStore, useUser, findChannel, dmName } from '../lib/store';
 import { joinCall, leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall, type Tile } from '../lib/voice';
 import { has, P } from '../lib/permissions';
 import { useSpeaking } from '../lib/speaking';
@@ -121,6 +121,8 @@ function CallTile({ tile, big, onFocus }: { tile: Tile; big?: boolean; onFocus: 
   const isFull = !!fullscreen && fullscreen === ref.current;
   const main = tile.screen ?? tile.camera;
   const isScreen = !!tile.screen;
+  const known = useUser(tile.identity);
+  const person = { id: tile.identity, displayName: known?.displayName ?? tile.name, avatarUrl: known?.avatarUrl ?? null };
 
   return (
     <div ref={ref} className={`call-tile ${isScreen ? 'screen' : ''} ${speaking ? 'speaking' : ''} ${big ? 'big' : ''}`}
@@ -129,12 +131,12 @@ function CallTile({ tile, big, onFocus }: { tile: Tile; big?: boolean; onFocus: 
       title={big ? 'Clique para voltar à grade, clique duas vezes para tela cheia' : 'Clique para destacar, clique duas vezes para tela cheia'}>
       {main
         ? <VideoEl track={main} fit={isScreen ? 'contain' : 'cover'} mirror={tile.local && !isScreen} />
-        : <div className="tile-avatar"><Avatar user={{ id: tile.identity, displayName: tile.name, avatarUrl: null }} size={big ? 96 : 72} /></div>}
+        : <div className="tile-avatar"><Avatar user={person} size={big ? 96 : 72} /></div>}
       {isScreen && (
         <div className="tile-pip">
           {tile.camera
             ? <VideoEl track={tile.camera} fit="cover" mirror={tile.local} />
-            : <Avatar user={{ id: tile.identity, displayName: tile.name, avatarUrl: null }} size={big ? 48 : 32} />}
+            : <Avatar user={person} size={big ? 48 : 32} />}
         </div>
       )}
       <span className="tile-name">

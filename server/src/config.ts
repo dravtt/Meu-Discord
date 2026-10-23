@@ -18,5 +18,13 @@ export const config = {
   },
   uploadDir: process.env.UPLOAD_DIR ?? './uploads',
   webDist: process.env.WEB_DIST ?? '../web/dist',
-  maxUploadBytes: 25 * 1024 * 1024,
+  maxUploadBytes: 80 * 1024 * 1024,
+  maxServersPerUser: Number(process.env.MAX_SERVERS_PER_USER ?? 100),
+  /** e.g. smtps://seuemail%40gmail.com:senha-de-app@smtp.gmail.com:465 */
+  smtpUrl: process.env.SMTP_URL ?? '',
+  mailFrom: process.env.MAIL_FROM ?? 'Voka <no-reply@voka.app>',
+  /** Tests turn these off. */
+  emailVerification: process.env.NEXO_EMAIL_VERIFY !== 'off',
+  checkMx: process.env.NEXO_CHECK_MX !== 'off',
+  rateLimits: process.env.NEXO_RATE_LIMITS !== 'off',
 };

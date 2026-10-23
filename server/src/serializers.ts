@@ -16,11 +16,13 @@ export interface UserRow {
   name_font: string;
   name_effect: string;
   name_colors: string[];
+  activity?: unknown;
 }
 
-export const USER_COLUMNS = 'id, username, display_name, avatar_url, bio, custom_status, status, created_at, banner_url, pronouns, profile_colors, name_font, name_effect, name_colors';
+export const USER_COLUMNS = 'id, username, display_name, avatar_url, bio, custom_status, status, created_at, banner_url, pronouns, profile_colors, name_font, name_effect, name_colors, activity';
 
 export async function publicUser(u: UserRow) {
+  const status = await visibleStatus(u.id, u.status);
   return {
     id: u.id,
     username: u.username,
@@ -28,12 +30,14 @@ export async function publicUser(u: UserRow) {
     avatarUrl: u.avatar_url,
     bio: u.bio,
     customStatus: u.custom_status,
-    status: await visibleStatus(u.id, u.status),
+    status,
     createdAt: u.created_at,
     bannerUrl: u.banner_url ?? null,
     pronouns: u.pronouns ?? '',
     profileColors: u.profile_colors ?? [],
     nameStyle: { font: u.name_font ?? 'default', effect: u.name_effect ?? 'solid', colors: u.name_colors ?? [] },
+    // What they are playing; hidden while offline or invisible.
+    activity: status === 'offline' ? null : u.activity ?? null,
   };
 }
 

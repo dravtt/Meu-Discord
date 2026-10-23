@@ -10,6 +10,8 @@ import { closeModal, openModal } from './Modal';
 import { UserMenu, openMenu } from './ContextMenu';
 import { UserSettings } from './modals/UserSettings';
 import { Mural } from './Mural';
+import { BadgeRow } from './Badges';
+import { ActivityCard } from './Activity';
 
 const longDate = (d: string | undefined) => (d ? new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
@@ -22,6 +24,8 @@ export function ProfileView({ user, name, nameColor, status, customStatus, actio
   actions?: ReactNode; children?: ReactNode; compact?: boolean;
 }) {
   const colors = user.profileColors ?? [];
+  const live = useStore((s) => s.presence[user.id]);
+  const activity = live ? live.activity : user.activity;
   const theme = profileBackground(colors);
   const style = (theme ? { '--pc-theme': theme, '--pc-c1': colors[0] } : {}) as CSSProperties;
   const banner = user.bannerUrl
@@ -36,13 +40,14 @@ export function ProfileView({ user, name, nameColor, status, customStatus, actio
           {actions && <div className="pc-actions">{actions}</div>}
         </div>
         <div className="pc-body">
-          <div className="pc-name"><StyledName user={user} fallbackColor={nameColor}>{name}</StyledName></div>
+          <div className="pc-name"><StyledName user={user} fallbackColor={nameColor}>{name}</StyledName><BadgeRow user={user} /></div>
           <div className="pc-handle">
             <span>{user.username}</span>
             {user.pronouns && <><span className="dot">•</span><span>{user.pronouns}</span></>}
             <span className="dot">•</span><span>{STATUS_LABEL[status] ?? status}</span>
           </div>
           {customStatus && <div className="pc-status">{customStatus}</div>}
+          {activity && <ActivityCard activity={activity} />}
           {children}
         </div>
       </div>

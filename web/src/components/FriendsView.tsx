@@ -59,7 +59,7 @@ function FriendRow({ r }: { r: Relationship }) {
       <button className="friend-info" {...userMenuProps(r.user.id)} onClick={() => openModal(<ProfileCard userId={r.user.id} serverId={null} />)}>
         <Avatar user={r.user} size={36} showStatus />
         <span><strong><StyledName user={r.user}>{r.user.displayName}</StyledName></strong> <small className="muted">{r.user.username}</small><br />
-          <small className="muted">{r.type === 'incoming' ? 'Pedido de amizade recebido' : r.type === 'outgoing' ? 'Pedido de amizade enviado' : r.type === 'blocked' ? 'Bloqueado' : presence?.customStatus || STATUS_LABEL[presence?.status ?? 'offline']}</small></span>
+          <small className="muted">{r.type === 'incoming' ? 'Pedido de amizade recebido' : r.type === 'outgoing' ? 'Pedido de amizade enviado' : r.type === 'blocked' ? 'Bloqueado' : presence?.activity ? `Jogando ${presence.activity.name}` : presence?.customStatus || STATUS_LABEL[presence?.status ?? 'offline']}</small></span>
       </button>
       <div className="row gap">
         {r.type === 'friend' && <button className="icon-btn" title="Mensagem" onClick={message}><MessageCircle size={18} /></button>}

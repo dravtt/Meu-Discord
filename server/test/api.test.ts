@@ -15,7 +15,7 @@ afterAll(stopServer);
 
 describe('auth', () => {
   it('rejects duplicate usernames and bad passwords', async () => {
-    await api().post('/api/auth/register').send({ username: 'ANA', password: 'outra-senha-1' }).expect(409);
+    await api().post('/api/auth/register').send({ username: 'ANA', password: 'outra-senha-1', email: 'outra@teste.com.br', birthdate: '2000-01-01' }).expect(409);
     await api().post('/api/auth/login').send({ username: 'ana', password: 'errada-errada' }).expect(401);
     const ok = await api().post('/api/auth/login').send({ username: 'ana', password: 'senha-forte-123' }).expect(200);
     expect(ok.body.user.username).toBe('ana');
@@ -439,5 +439,89 @@ describe('game search', () => {
     } finally { globalThis.fetch = real; }
     const w = [{ type: 'games', games: [{ name: 'Rocket League', cover: null, steamId: 252950 }] }];
     expect((await api().patch('/api/users/@me').set(auth(ana)).send({ widgets: w }).expect(200)).body.widgets).toEqual(w);
+  });
+});
+
+describe('account safety', () => {
+  const sign = (username: string, extra: Record<string, unknown> = {}) =>
+    api().post('/api/auth/register').send({ username, password: 'senha-forte-123', email: `${username}@teste.com.br`, birthdate: '2001-05-10', ...extra });
+
+  it('validates e-mail and age on sign up, and logs in by e-mail', async () => {
+    expect((await sign('semmail', { email: 'nao-e-email' }).expect(400)).body.error).toBe('Digite um e-mail válido');
+    await sign('descartavel', { email: 'x@mailinator.com' }).expect(400);
+    await sign('crianca', { birthdate: new Date(Date.now() - 5 * 365 * 86400000).toISOString().slice(0, 10) }).expect(400);
+    await sign('outraana', { email: 'ana@teste.com.br' }).expect(409);
+    const ok = await api().post('/api/auth/login').send({ username: 'ANA@teste.com.br', password: 'senha-forte-123' }).expect(200);
+    expect(ok.body.user.id).toBe(ana.id);
+  });
+
+  it('blocks the app until the e-mail code is confirmed', async () => {
+    const { config } = await import('../src/config.js');
+    const { pool } = await import('../src/db.js');
+    config.emailVerification = true;
+    try {
+      const res = await sign('duda').expect(201);
+      const h = { Authorization: `Bearer ${res.body.token}` };
+      const me = await api().get('/api/users/@me').set(h).expect(200);
+      expect(me.body).toMatchObject({ email: 'duda@teste.com.br', emailVerified: false });
+      expect((await api().get('/api/servers').set(h).expect(403)).body.code).toBe('email_unverified');
+      await api().post('/api/users/@me/email/verify').set(h).send({ code: '000000' }).expect(400);
+      const { rows } = await pool.query("SELECT email_code FROM users WHERE username = 'duda'");
+      await api().post('/api/users/@me/email/verify').set(h).send({ code: rows[0].email_code }).expect(200);
+      await api().get('/api/servers').set(h).expect(200);
+    } finally { config.emailVerification = false; }
+  });
+
+  it('lets the username change once every two weeks and frees nothing taken', async () => {
+    const u = await register('elis');
+    await api().put('/api/users/@me/username').set(auth(u)).send({ username: 'bia', password: 'senha-forte-123' }).expect(409);
+    await api().put('/api/users/@me/username').set(auth(u)).send({ username: 'elis2', password: 'errada-errada' }).expect(400);
+    await api().put('/api/users/@me/username').set(auth(u)).send({ username: 'elis2', password: 'senha-forte-123' }).expect(200);
+    await api().put('/api/users/@me/username').set(auth(u)).send({ username: 'elis3', password: 'senha-forte-123' }).expect(429);
+    await sign('elis2').expect(409);
+  });
+
+  it('caps how many servers someone can be in', async () => {
+    const { config } = await import('../src/config.js');
+    const u = await register('fred');
+    const max = config.maxServersPerUser;
+    config.maxServersPerUser = 1;
+    try {
+      await api().post('/api/servers').set(auth(u)).send({ name: 'Primeiro' }).expect(201);
+      expect((await api().post('/api/servers').set(auth(u)).send({ name: 'Segundo' }).expect(403)).body.error).toMatch(/máximo/);
+    } finally { config.maxServersPerUser = max; }
+  });
+
+  it('keeps minors out of +18 servers', async () => {
+    const owner = await register('guto');
+    const kid = await sign('kid', { birthdate: new Date(Date.now() - 15 * 365.25 * 86400000).toISOString().slice(0, 10) }).expect(201);
+    const kidAuth = { Authorization: `Bearer ${kid.body.token}` };
+    const s = await api().post('/api/servers').set(auth(owner)).send({ name: 'Adultos' }).expect(201);
+    const patched = await api().patch(`/api/servers/${s.body.id}`).set(auth(owner)).send({ nsfw: true }).expect(200);
+    expect(patched.body.nsfw).toBe(true);
+    const inv = await api().post(`/api/servers/${s.body.id}/invites`).set(auth(owner)).send({}).expect(201);
+    expect((await api().get(`/api/invites/${inv.body.code}`).set(kidAuth).expect(200)).body.server.nsfw).toBe(true);
+    await api().post(`/api/invites/${inv.body.code}`).set(kidAuth).expect(403);
+    await api().post(`/api/invites/${inv.body.code}`).set(auth(ana)).expect(200);
+  });
+
+  it('shows the game someone is playing and the badges they keep', async () => {
+    const watcher = await connect(ana);
+    try {
+      await api().put(`/api/relationships/${bia.id}`).set(auth(ana));
+      await api().put(`/api/relationships/${ana.id}`).set(auth(bia));
+      const sock = await connect(bia);
+      const ev = nextEvent(watcher, 'presence');
+      await api().put('/api/users/@me/activity').set(auth(bia)).send({ name: 'VALORANT', catalogId: 'valorant', source: 'manual' }).expect(200);
+      expect((await ev).activity).toMatchObject({ name: 'VALORANT' });
+      await api().delete('/api/users/@me/activity').set(auth(bia)).expect(204);
+      sock.close();
+    } finally { watcher.close(); }
+    const me = await api().get('/api/users/@me').set(auth(ana)).expect(200);
+    expect(me.body.badges).toContain('founder');
+    await api().put('/api/users/@me/badges').set(auth(ana)).send({ hidden: ['founder'] }).expect(200);
+    const seen = await api().get(`/api/users/${ana.id}`).set(auth(bia)).expect(200);
+    expect(seen.body.badges).not.toContain('founder');
+    expect(seen.body.badges).toContain('pioneer');
   });
 });

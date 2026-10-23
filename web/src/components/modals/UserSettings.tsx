@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { api, setToken } from '../../lib/api';
+import { forgetAccount } from '../../lib/accounts';
 import { useStore, set } from '../../lib/store';
 import { applyVoiceSettings, leaveCall, useCall, useMicLevel } from '../../lib/voice';
 import { audioConstraints, keyLabel, saveVoiceSettings, useVoiceSettings, type VoiceSettings } from '../../lib/voiceSettings';
@@ -22,13 +23,14 @@ export function UserSettings() {
   async function save(body: Record<string, unknown>) {
     try {
       const updated = await api('/users/@me', { method: 'PATCH', body });
-      set((s) => ({ me: updated, presence: { ...s.presence, [updated.id]: { status: updated.status, customStatus: updated.customStatus } } }));
+      set((s) => ({ me: updated, presence: { ...s.presence, [updated.id]: { ...s.presence[updated.id], status: updated.status, customStatus: updated.customStatus } } }));
       setMsg({ ok: true, text: 'Alterações salvas!' });
     } catch (e) { setMsg({ ok: false, text: (e as Error).message }); }
   }
 
   async function logout() {
     await leaveCall();
+    if (me) forgetAccount(me.id);
     setToken(null);
     location.reload();
   }
@@ -52,7 +54,7 @@ export function UserSettings() {
         ) : (
           <section>
             <h2>Minha conta</h2>
-            <p>Nome de usuário: <strong>{me.username}</strong></p>
+            <AccountPanel onMsg={setMsg} />
             <h3>Alterar senha</h3>
             <label>Senha atual<input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /></label>
             <label>Nova senha<input type="password" value={newPassword} minLength={8} onChange={(e) => setNewPassword(e.target.value)} /></label>
@@ -61,6 +63,56 @@ export function UserSettings() {
         )}
         {msg && <p className={msg.ok ? 'ok' : 'error'}>{msg.text}</p>}
       </div>
+    </div>
+  );
+}
+
+const COOLDOWN_DAYS = 14;
+
+/** E-mail, username (changeable every two weeks) and birth date. */
+function AccountPanel({ onMsg }: { onMsg: (m: { ok: boolean; text: string } | null) => void }) {
+  const me = useStore((s) => s.me)!;
+  const [username, setUsername] = useState(me.username);
+  const [password, setPassword] = useState('');
+  const [birthdate, setBirthdate] = useState('');
+  const changedAt = me.usernameChangedAt ? new Date(me.usernameChangedAt) : null;
+  const nextChange = changedAt ? new Date(changedAt.getTime() + COOLDOWN_DAYS * 86400000) : null;
+  const locked = !!nextChange && nextChange > new Date();
+
+  async function run(fn: () => Promise<void>) {
+    onMsg(null);
+    try { await fn(); } catch (e) { onMsg({ ok: false, text: (e as Error).message }); }
+  }
+
+  return (
+    <div className="account-panel">
+      <div className="account-row">
+        <span className="muted small">E-mail</span>
+        <strong>{me.email ?? 'Nenhum e-mail (conta antiga)'}</strong>
+      </div>
+      <h3>Nome de usuário</h3>
+      <p className="muted small">
+        Atual: <strong>{me.username}</strong>. Dá para trocar a cada {COOLDOWN_DAYS} dias, e um nome que já é de outra pessoa fica indisponível.
+        {locked && <> Próxima troca liberada em <strong>{nextChange!.toLocaleDateString('pt-BR')}</strong>.</>}
+      </p>
+      <label>Novo nome de usuário<input value={username} maxLength={32} disabled={locked} onChange={(e) => setUsername(e.target.value.toLowerCase())} /></label>
+      {username !== me.username && <label>Sua senha<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>}
+      <button className="btn primary" disabled={locked || username === me.username || !password} onClick={() => void run(async () => {
+        const r = await api<{ username: string; usernameChangedAt: string }>('/users/@me/username', { method: 'PUT', body: { username, password } });
+        set((s) => ({ me: s.me && { ...s.me, ...r } }));
+        setPassword('');
+        onMsg({ ok: true, text: 'Nome de usuário alterado!' });
+      })}>Trocar nome de usuário</button>
+      {!me.hasBirthdate && <>
+        <h3>Data de nascimento</h3>
+        <p className="muted small">Necessária para entrar em servidores +18. Só dá para informar uma vez.</p>
+        <label>Data de nascimento<input type="date" value={birthdate} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setBirthdate(e.target.value)} /></label>
+        <button className="btn primary" disabled={!birthdate} onClick={() => void run(async () => {
+          await api('/users/@me/birthdate', { method: 'PUT', body: { birthdate } });
+          set({ me: await api('/users/@me') });
+          onMsg({ ok: true, text: 'Data de nascimento salva.' });
+        })}>Salvar data</button>
+      </>}
     </div>
   );
 }

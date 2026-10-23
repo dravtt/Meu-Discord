@@ -89,8 +89,8 @@ export function connectSocket() {
     set((s) => ({ typing: { ...s.typing, [channelId]: { ...(s.typing[channelId] ?? {}), [userId]: Date.now() + 8000 } } }));
   });
 
-  socket.on('presence', ({ userId, status, customStatus }) => {
-    set((s) => ({ presence: { ...s.presence, [userId]: { status, customStatus } } }));
+  socket.on('presence', ({ userId, status, customStatus, activity }) => {
+    set((s) => ({ presence: { ...s.presence, [userId]: { status, customStatus, activity } } }));
   });
 
   socket.on('user:update', (u: User) => applyUserUpdate(u));
@@ -145,9 +145,9 @@ export async function bootstrap() {
   const [me, servers, dms, relationships, readStates] = await Promise.all([
     api('/users/@me'), api<{ id: string }[]>('/servers'), api<Channel[]>('/dms'), api<Relationship[]>('/relationships'), api<{ channelId: string; unread: boolean; mentions: number }[]>('/read-states'),
   ]);
-  const presence: Record<string, any> = { [me.id]: { status: me.status, customStatus: me.customStatus } };
-  for (const r of relationships) presence[r.user.id] = { status: r.user.status, customStatus: r.user.customStatus };
-  for (const dm of dms) for (const u of dm.recipients ?? []) presence[u.id] = { status: u.status, customStatus: u.customStatus };
+  const presence: Record<string, any> = { [me.id]: { status: me.status, customStatus: me.customStatus, activity: me.activity } };
+  for (const r of relationships) presence[r.user.id] = { status: r.user.status, customStatus: r.user.customStatus, activity: r.user.activity };
+  for (const dm of dms) for (const u of dm.recipients ?? []) presence[u.id] = { status: u.status, customStatus: u.customStatus, activity: u.activity };
   set((s) => ({
     me,
     relationships,

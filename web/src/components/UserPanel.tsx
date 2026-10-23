@@ -5,7 +5,7 @@ import { openScreenShare } from './ScreenShareModal';
 import { toggleSoundboard, useSoundboardOpen } from './Soundboard';
 import { useStore, set, findChannel } from '../lib/store';
 import { api } from '../lib/api';
-import { Headphones, HeadphoneOff, Mic, MicOff, MonitorOff, MonitorUp, PartyPopper, Pencil, PhoneOff, Settings, Copy, UserRound, Signal, Video, VideoOff } from 'lucide-react';
+import { Award, ChevronRight, Gamepad2, Headphones, HeadphoneOff, Mic, MicOff, MonitorOff, MonitorUp, PartyPopper, Pencil, PhoneOff, Plus, Settings, Copy, UserRound, Users, Signal, Video, VideoOff } from 'lucide-react';
 import { leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall } from '../lib/voice';
 import type { Status } from '../lib/types';
 import { Avatar, STATUS_LABEL } from './Avatar';
@@ -13,24 +13,43 @@ import { openModal } from './Modal';
 import { UserSettings } from './modals/UserSettings';
 import { StyledName } from '../lib/nameStyle';
 import { ProfileCard, ProfileView } from './ProfileCard';
+import { ActivityDialog } from './Activity';
+import { BadgesDialog } from './Badges';
+import { addAccount, savedAccounts, switchTo } from '../lib/accounts';
+
+const STATUS_HINT: Record<string, string> = {
+  idle: '',
+  dnd: 'Você não vai receber notificações',
+  invisible: 'Você aparece offline, mas pode usar tudo normalmente',
+};
 
 export function UserPanel() {
   const me = useStore((s) => s.me);
   const muted = useCall((s) => s.muted);
   const deafened = useCall((s) => s.deafened);
   const [menu, setMenu] = useState(false);
+  const [sub, setSub] = useState<{ kind: 'status' | 'accounts'; top: number; left: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const closeStatus = useRef(() => setMenu(false)).current;
+  const closeStatus = useRef(() => { setMenu(false); setSub(null); }).current;
   useClickOutside(panelRef, menu, closeStatus);
   const speaking = useSpeaking((s) => (me ? !!s[me.id] : false));
   const status = useStore((s) => (me ? s.presence[me.id]?.status ?? me.status : 'offline'));
+  const activity = useStore((s) => (me ? s.presence[me.id]?.activity : null));
   if (!me) return null;
 
   async function setStatus(status: Status) {
     const updated = await api('/users/@me', { method: 'PATCH', body: { status } });
     set((s) => ({ me: updated, presence: { ...s.presence, [me!.id]: { status, customStatus: updated.customStatus } } }));
-    setMenu(false);
+    closeStatus();
   }
+
+  /** Opens a submenu beside the row that was hovered or clicked. */
+  const openSub = (kind: 'status' | 'accounts') => (e: { currentTarget: HTMLElement }) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setSub({ kind, top: Math.min(r.top - 6, window.innerHeight - 260), left: r.right + 8 });
+  };
+  const go = (fn: () => void) => () => { closeStatus(); fn(); };
+  const others = savedAccounts().filter((a) => a.id !== me.id);
 
   return (
     <div className="user-panel">
@@ -39,24 +58,49 @@ export function UserPanel() {
         <div className="me-popout">
           <ProfileView user={me} name={me.displayName} status={status} customStatus={me.customStatus} compact>
             {me.bio && <div className="pc-section"><p className="pc-bio">{me.bio}</p></div>}
-            <div className="pc-section me-popout-menu">
-              <button onClick={() => { setMenu(false); openModal(<UserSettings />); }}><Pencil size={16} /> Editar perfil</button>
-              <button onClick={() => { setMenu(false); openModal(<ProfileCard userId={me.id} serverId={null} />); }}><UserRound size={16} /> Ver perfil completo</button>
-              <div className="ctx-sep" />
-              {(['online', 'idle', 'dnd', 'invisible'] as const).map((st) => (
-                <button key={st} className={status === st ? 'active' : ''} onClick={() => setStatus(st)}><span className={`status-dot inline ${st}`} /> {STATUS_LABEL[st]}</button>
-              ))}
-              <div className="ctx-sep" />
-              <button onClick={() => { void navigator.clipboard?.writeText(me.id); setMenu(false); }}><Copy size={16} /> Copiar ID do usuário</button>
+            <div className="me-box">
+              <button onMouseEnter={() => setSub(null)} onClick={go(() => openModal(<UserSettings />))}><Pencil size={16} /> Editar perfil</button>
+              <button className={`has-sub ${sub?.kind === 'status' ? 'open' : ''}`} onMouseEnter={openSub('status')} onClick={openSub('status')}>
+                <span className={`status-dot inline ${status}`} /> {STATUS_LABEL[status]} <ChevronRight size={16} className="chev" />
+              </button>
+              <button onMouseEnter={() => setSub(null)} onClick={go(() => openModal(<ActivityDialog />))}>
+                <Gamepad2 size={16} /> <span className="ellipsis">{activity ? `Jogando ${activity.name}` : 'Definir jogo'}</span>
+              </button>
+              <button onMouseEnter={() => setSub(null)} onClick={go(() => openModal(<BadgesDialog />))}><Award size={16} /> Insígnias</button>
+              <button onMouseEnter={() => setSub(null)} onClick={go(() => openModal(<ProfileCard userId={me.id} serverId={null} />))}><UserRound size={16} /> Ver perfil completo</button>
+            </div>
+            <div className="me-box">
+              <button className={`has-sub ${sub?.kind === 'accounts' ? 'open' : ''}`} onMouseEnter={openSub('accounts')} onClick={openSub('accounts')}>
+                <Users size={16} /> Mudar de conta <ChevronRight size={16} className="chev" />
+              </button>
+              <button onMouseEnter={() => setSub(null)} onClick={go(() => { void navigator.clipboard?.writeText(me.id); })}><Copy size={16} /> Copiar ID do usuário</button>
             </div>
           </ProfileView>
+          {sub && (
+            <div className="me-sub" style={{ top: sub.top, left: sub.left }} onMouseLeave={() => setSub(null)}>
+              {sub.kind === 'status'
+                ? (['online', 'idle', 'dnd', 'invisible'] as const).map((st) => (
+                  <button key={st} className={status === st ? 'active' : ''} onClick={() => void setStatus(st)}>
+                    <span className={`status-dot inline ${st}`} />
+                    <span><strong>{STATUS_LABEL[st]}</strong>{STATUS_HINT[st] && <small>{STATUS_HINT[st]}</small>}</span>
+                  </button>))
+                : <>
+                  <button className="active" disabled><Avatar user={me} size={24} /> <span><strong>{me.displayName}</strong><small>Conta atual</small></span></button>
+                  {others.map((a) => (
+                    <button key={a.id} onClick={() => switchTo(a)}><Avatar user={{ id: a.id, displayName: a.displayName, avatarUrl: a.avatarUrl }} size={24} /> <span><strong>{a.displayName}</strong><small>{a.username}</small></span></button>
+                  ))}
+                  <div className="ctx-sep" />
+                  <button onClick={addAccount}><Plus size={16} /> Adicionar conta</button>
+                </>}
+            </div>
+          )}
         </div>
       )}
-      <button className={`me ${speaking ? 'speaking' : ''}`} onClick={() => setMenu(!menu)} title="Seu perfil e status">
+      <button className={`me ${speaking ? 'speaking' : ''}`} onClick={() => { setMenu(!menu); setSub(null); }} title="Seu perfil e status">
         <Avatar user={me} size={32} showStatus />
         <span className="me-names">
           <strong><StyledName user={me}>{me.displayName}</StyledName></strong>
-          <small>{me.customStatus || STATUS_LABEL[me.status]}</small>
+          <small>{activity ? `Jogando ${activity.name}` : me.customStatus || STATUS_LABEL[status]}</small>
         </span>
       </button>
       </div>

@@ -100,7 +100,8 @@ async function onConnection(socket: Socket) {
       if ((connections.get(userId) ?? 0) > 0) return;
       connections.delete(userId);
       leaveVoice(userId);
-      void broadcastPresence(userId).catch(() => {});
+      // Going offline ends whatever game they were playing.
+      void query('UPDATE users SET activity = NULL WHERE id = $1', [userId]).then(() => broadcastPresence(userId)).catch(() => {});
     }, DISCONNECT_GRACE_MS));
   });
 }
@@ -116,9 +117,10 @@ export async function visibleStatus(userId: string, stored?: string): Promise<st
 
 export async function broadcastPresence(userId: string) {
   if (!io) return;
-  const user = await one<{ status: string; custom_status: string }>('SELECT status, custom_status FROM users WHERE id = $1', [userId]);
+  const user = await one<{ status: string; custom_status: string; activity: unknown }>('SELECT status, custom_status, activity FROM users WHERE id = $1', [userId]);
   if (!user) return;
-  const payload = { userId, status: await visibleStatus(userId, user.status), customStatus: user.custom_status };
+  const status = await visibleStatus(userId, user.status);
+  const payload = { userId, status, customStatus: user.custom_status, activity: status === 'offline' ? null : user.activity ?? null };
   io.to(await audienceOf(userId)).emit('presence', payload);
 }
 

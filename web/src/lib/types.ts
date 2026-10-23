@@ -16,7 +16,20 @@ export interface User {
   nameStyle?: NameStyle;
   /** Only on your own user and on a fetched profile. */
   widgets?: Widget[];
+  /** The game being played right now. */
+  activity?: Activity | null;
+  /** Badges shown on the profile (already without the hidden ones, for other people). */
+  badges?: string[];
+  /* Only on your own user: */
+  email?: string | null;
+  emailVerified?: boolean;
+  hasBirthdate?: boolean;
+  adult?: boolean;
+  usernameChangedAt?: string | null;
+  hiddenBadges?: string[];
 }
+
+export interface Activity { name: string; steamId?: number; catalogId?: string; source: 'manual' | 'auto'; since: string }
 
 /** `cover` is an uploaded image; otherwise the Voka catalog cover (`catalogId`) or Steam's art (`steamId`). */
 export interface Game { name: string; cover: string | null; steamId?: number; catalogId?: string }
@@ -79,6 +92,8 @@ export interface Server {
   name: string;
   iconUrl: string | null;
   ownerId: string;
+  /** Adults only (+18). */
+  nsfw?: boolean;
   permissions: number;
   channels: Channel[];
   roles: Role[];
@@ -112,4 +127,4 @@ export interface Message {
 
 export interface Relationship { user: User; type: 'friend' | 'incoming' | 'outgoing' | 'blocked' }
 export interface ReadState { channelId: string; unread: boolean; mentions: number }
-export interface Invite { code: string; server: { id: string; name: string; iconUrl: string | null; memberCount: number }; inviter: User; uses: number; maxUses: number | null; expiresAt: string | null }
+export interface Invite { code: string; server: { id: string; name: string; iconUrl: string | null; memberCount: number; nsfw?: boolean }; inviter: User; uses: number; maxUses: number | null; expiresAt: string | null }

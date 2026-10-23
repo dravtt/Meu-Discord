@@ -13,9 +13,11 @@ async function user(name) {
 async function register(page, username, display) {
   await page.goto(URL);
   await page.getByText('Precisa de uma conta? Cadastre-se').click();
+  await page.getByLabel('E-mail').fill(`${username}@teste.com.br`);
   await page.getByLabel('Nome de usuário').fill(username);
   await page.getByLabel('Nome de exibição').fill(display);
   await page.getByLabel('Senha').fill('senha-forte-123');
+  await page.getByLabel('Data de nascimento').fill('2000-03-15');
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await page.getByText('Amigos').first().waitFor();
 }
@@ -275,6 +277,11 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
   await ana.locator('.user-panel').getByTitle('Configurações').click();
   await ana.getByLabel('Pronomes').fill('ela/dela');
   await ana.getByLabel('Trocar banner').setInputFiles({ name: 'banner.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAECAIAAAA8r+mnAAAAT0lEQVR4nA3JMQHAMAgAwcphiRIWbOAAB9hgQQnL20BJmlvvu8IKI7SQggsqHOG7xhpjtJGGG2ocexFsMEEHGXigwYkXxRZTdJGFF1qc4geWCjhBjoZD5QAAAABJRU5ErkJggg==', 'base64') });
+  // The picture can be zoomed and moved before it is applied.
+  await ana.locator('.cropper .crop-frame img').waitFor();
+  await ana.getByLabel('Zoom').fill('1.5');
+  await ana.screenshot({ path: `${SHOTS}/14b-cropper.png` });
+  await ana.getByRole('button', { name: 'Aplicar' }).click();
   await ana.getByRole('button', { name: 'Remover banner' }).waitFor();
   await ana.getByRole('button', { name: 'Duas cores', exact: true }).click();
   await ana.getByRole('button', { name: 'Fonte Pixel' }).click();
@@ -323,6 +330,39 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
   await ana.getByRole('button', { name: 'Ver perfil completo' }).click();
   await ana.locator('.profile-full .widget-games', { hasText: 'VALORANT' }).waitFor();
   await ana.keyboard.press('Escape');
+});
+await step('Mini-perfil: status num item só, jogo atual, insígnias e contas', async () => {
+  await ana.locator('.user-panel .me').click();
+  await ana.locator('.me-popout').waitFor();
+  await ana.locator('.me-box button.has-sub', { hasText: 'Disponível' }).hover();
+  await ana.locator('.me-sub').waitFor();
+  await ana.screenshot({ path: `${SHOTS}/18-status-sub.png` });
+  await ana.locator('.me-sub button', { hasText: 'Ausente' }).click();
+  await ana.locator('.me-popout').waitFor({ state: 'detached' });
+  await bia.locator('.member', { hasText: 'Ana' }).locator('.status-dot.idle').waitFor();
+  // Playing a game, picked by hand in the browser.
+  await ana.locator('.user-panel .me').click();
+  await ana.getByRole('button', { name: 'Definir jogo' }).click();
+  await ana.getByLabel('Buscar jogo').fill('valo');
+  await ana.getByRole('option', { name: 'VALORANT' }).click();
+  await bia.locator('.member', { hasText: 'Ana' }).locator('.activity-line', { hasText: 'VALORANT' }).waitFor();
+  await ana.locator('.user-panel .me small', { hasText: 'Jogando VALORANT' }).waitFor();
+  // Badges, and hiding one.
+  await ana.locator('.user-panel .me').click();
+  await ana.locator('.me-popout .badge-row').waitFor();
+  await ana.locator('.me-popout .activity-card', { hasText: 'VALORANT' }).waitFor();
+  await ana.screenshot({ path: `${SHOTS}/19-me-popout-new.png` });
+  await ana.locator('.me-box button.has-sub', { hasText: 'Mudar de conta' }).hover();
+  await ana.locator('.me-sub', { hasText: 'Adicionar conta' }).waitFor();
+  await ana.getByRole('button', { name: 'Insígnias' }).click();
+  const pioneer = ana.getByLabel('Mostrar Pioneiro');
+  await pioneer.waitFor();
+  await ana.screenshot({ path: `${SHOTS}/20-badges.png` });
+  await pioneer.uncheck({ force: true });
+  await ana.keyboard.press('Escape');
+  await bia.locator('.member', { hasText: 'Ana' }).first().click();
+  await bia.locator('.profile-card .activity-card', { hasText: 'VALORANT' }).first().waitFor();
+  await bia.keyboard.press('Escape');
 });
 await step('Presença: Bia fica offline para Ana ao sair', async () => {
   await ana.getByRole('button', { name: 'geral', exact: true }).click();

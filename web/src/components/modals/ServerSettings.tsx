@@ -64,6 +64,11 @@ function Overview({ server }: { server: Server }) {
       }} /></label>
       {server.iconUrl && <button className="link" onClick={() => api(`/servers/${server.id}`, { method: 'PATCH', body: { iconUrl: null } })}>Remover ícone</button>}
       <div className="row gap"><button className="btn primary" onClick={async () => { await api(`/servers/${server.id}`, { method: 'PATCH', body: { name } }); setSaved(true); }}>Salvar</button>{saved && <span className="ok">Salvo!</span>}</div>
+      <h3>Servidor +18</h3>
+      <label className="check-row">
+        <input type="checkbox" checked={!!server.nsfw} onChange={(e) => void api(`/servers/${server.id}`, { method: 'PATCH', body: { nsfw: e.target.checked } })} />
+        Conteúdo adulto: só quem tem 18 anos ou mais consegue entrar pelo convite
+      </label>
       {server.ownerId === me?.id && (
         <>
           <h3>Transferir posse</h3>

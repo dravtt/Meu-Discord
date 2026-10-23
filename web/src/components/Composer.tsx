@@ -97,8 +97,8 @@ export function Composer({ channel, canAttach, placeholder }: { channel: Channel
 
   function addFiles(list: FileList | File[]) {
     if (!canAttach) return setError('Você não pode enviar arquivos aqui');
-    const tooBig = [...list].find((f) => f.size > 25 * 1024 * 1024);
-    if (tooBig) return setError(`${tooBig.name} passa de 25 MB`);
+    const tooBig = [...list].find((f) => f.size > 80 * 1024 * 1024);
+    if (tooBig) return setError(`${tooBig.name} passa de 80 MB`);
     setFiles((prev) => [...prev, ...list].slice(0, MAX_FILES));
   }
 

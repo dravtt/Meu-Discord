@@ -6,12 +6,13 @@ import { badRequest, forbidden, notFound } from '../errors.js';
 import { channelPermissions, DEFAULT_EVERYONE_PERMISSIONS, has, P, requireServer, topRolePosition, type ChannelRow } from '../permissions.js';
 import { emitToServer, emitToUser, setServerSubscription, voiceStatesFor } from '../realtime.js';
 import { getPublicUser, serializeChannel, serializeRole } from '../serializers.js';
+import { assertServerSlot, rateLimit } from '../guard.js';
 
 export const serversRouter = Router();
 serversRouter.use(requireAuth);
 
 function serializeServer(s: any) {
-  return { id: s.id, name: s.name, iconUrl: s.icon_url, ownerId: s.owner_id, createdAt: s.created_at };
+  return { id: s.id, name: s.name, iconUrl: s.icon_url, ownerId: s.owner_id, createdAt: s.created_at, nsfw: !!s.nsfw };
 }
 
 export async function memberPayload(serverId: string, userId: string) {
@@ -58,6 +59,8 @@ serversRouter.get('/servers', async (req, res) => {
 
 serversRouter.post('/servers', async (req, res) => {
   const body = z.object({ name: z.string().trim().min(2).max(100), iconUrl: z.string().max(500).nullable().optional() }).parse(req.body);
+  rateLimit(`server:create:${uid(req)}`, 10, 60 * 60_000, 'Você criou servidores demais em pouco tempo. Tente de novo mais tarde.');
+  await assertServerSlot(uid(req));
   const serverId = await transaction(async (db) => {
     const s = (await db.query('INSERT INTO servers (name, icon_url, owner_id) VALUES ($1, $2, $3) RETURNING id', [body.name, body.iconUrl ?? null, uid(req)])).rows[0];
     await db.query('INSERT INTO members (server_id, user_id) VALUES ($1, $2)', [s.id, uid(req)]);
@@ -83,10 +86,10 @@ serversRouter.get('/servers/:serverId', async (req, res) => {
 serversRouter.patch('/servers/:serverId', async (req, res) => {
   const serverId = String(req.params.serverId);
   await requireServer(serverId, uid(req), P.MANAGE_SERVER);
-  const body = z.object({ name: z.string().trim().min(2).max(100).optional(), iconUrl: z.string().max(500).nullable().optional() }).parse(req.body);
+  const body = z.object({ name: z.string().trim().min(2).max(100).optional(), iconUrl: z.string().max(500).nullable().optional(), nsfw: z.boolean().optional() }).parse(req.body);
   const s = await one(
-    `UPDATE servers SET name = COALESCE($2, name), icon_url = CASE WHEN $3::boolean THEN $4 ELSE icon_url END WHERE id = $1 RETURNING *`,
-    [serverId, body.name ?? null, body.iconUrl !== undefined, body.iconUrl ?? null]);
+    `UPDATE servers SET name = COALESCE($2, name), icon_url = CASE WHEN $3::boolean THEN $4 ELSE icon_url END, nsfw = COALESCE($5, nsfw) WHERE id = $1 RETURNING *`,
+    [serverId, body.name ?? null, body.iconUrl !== undefined, body.iconUrl ?? null, body.nsfw ?? null]);
   emitToServer(serverId, 'server:update', serializeServer(s));
   res.json(serializeServer(s));
 });

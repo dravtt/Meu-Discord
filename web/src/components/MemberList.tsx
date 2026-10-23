@@ -1,3 +1,4 @@
+import { ActivityLine } from './Activity';
 import { Crown } from 'lucide-react';
 import { useStore, memberName, memberColor } from '../lib/store';
 import type { Channel, Member, Server } from '../lib/types';
@@ -33,7 +34,9 @@ export function MemberList({ server }: { server: Server; channel: Channel }) {
               <Avatar user={m.user} size={32} showStatus />
               <span className="member-text">
                 <span style={{ color: memberColor(server.id, m.user.id) }}><StyledName user={m.user}>{memberName(server.id, m.user)}</StyledName>{server.ownerId === m.user.id && <Crown size={14} className="owner-crown" />}</span>
-                {presence[m.user.id]?.customStatus && <small>{presence[m.user.id].customStatus}</small>}
+                {presence[m.user.id]?.activity
+                  ? <ActivityLine activity={presence[m.user.id].activity!} />
+                  : presence[m.user.id]?.customStatus && <small>{presence[m.user.id].customStatus}</small>}
               </span>
             </button>
           ))}

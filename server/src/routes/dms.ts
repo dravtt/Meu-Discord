@@ -7,6 +7,7 @@ import { getChannel } from '../permissions.js';
 import { emitToChannel, emitToUser } from '../realtime.js';
 import { getPublicUser, loadMessage, serializeChannel } from '../serializers.js';
 import { isBlockedBetween } from './relationships.js';
+import { rateLimit } from '../guard.js';
 
 export const dmsRouter = Router();
 dmsRouter.use(requireAuth);
@@ -71,6 +72,7 @@ dmsRouter.post('/dms', async (req, res) => {
     if (friends.length !== others.length) throw forbidden('Grupos só podem ser criados com amigos');
   }
 
+  rateLimit(`dm:create:${uid(req)}`, 15, 60 * 60_000, 'Você começou conversas demais em pouco tempo. Tente de novo mais tarde.');
   const channelId = await transaction(async (db) => {
     const type = others.length === 1 ? 'dm' : 'group_dm';
     const c = (await db.query('INSERT INTO channels (type, name, owner_id) VALUES ($1, $2, $3) RETURNING id', [type, body.name ?? '', type === 'group_dm' ? uid(req) : null])).rows[0];

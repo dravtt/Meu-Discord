@@ -72,14 +72,33 @@ export async function joinInviteFromUrl() {
   history.replaceState(null, '', location.pathname);
   try {
     const invite = await api<Invite>(`/invites/${match[1]}`);
-    openModal(
-      <Dialog title="Você foi convidado!" footer={<><button className="btn ghost" onClick={closeModal}>Agora não</button><button className="btn primary" onClick={async () => { await joinInvite(invite.code); closeModal(); }}>Aceitar convite</button></>}>
-        <p><strong>{invite.inviter.displayName}</strong> convidou você para <strong>{invite.server.name}</strong> ({invite.server.memberCount} membros).</p>
-      </Dialog>,
-    );
+    openModal(<InvitePrompt invite={invite} />);
   } catch {
     openModal(<Dialog title="Convite inválido"><p>Este convite expirou ou não existe.</p></Dialog>);
   }
+}
+
+function InvitePrompt({ invite }: { invite: Invite }) {
+  const [error, setError] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(!invite.server.nsfw);
+  return (
+    <Dialog title="Você foi convidado!" footer={<>
+      <button className="btn ghost" onClick={closeModal}>Agora não</button>
+      <button className="btn primary" disabled={!agreed} onClick={async () => {
+        try { await joinInvite(invite.code); closeModal(); } catch (e) { setError((e as Error).message); }
+      }}>Aceitar convite</button>
+    </>}>
+      <p><strong>{invite.inviter.displayName}</strong> convidou você para <strong>{invite.server.name}</strong> ({invite.server.memberCount} membros).</p>
+      {invite.server.nsfw && (
+        <div className="nsfw-warning">
+          <strong>Servidor +18</strong>
+          <p>Este servidor pode ter conteúdo adulto. Só maiores de 18 anos podem entrar.</p>
+          <label className="check-row"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /> Tenho 18 anos ou mais e quero entrar</label>
+        </div>
+      )}
+      {error && <p className="error">{error}</p>}
+    </Dialog>
+  );
 }
 
 export const inviteLink = (code: string) => `${location.origin}${location.pathname}#/convite/${code}`;

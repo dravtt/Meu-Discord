@@ -67,7 +67,7 @@ type SearchHit = { name: string; steamId?: number; catalogId?: string };
 const toGame = (h: SearchHit): Game => ({ name: h.name, cover: null, ...(h.catalogId ? { catalogId: h.catalogId } : { steamId: h.steamId }) });
 
 /** Type a name, pick the game from Steam's catalog (cover included) or add it by name only. */
-function GameSearch({ onPick, disabled, placeholder = 'Buscar jogo (ex.: Rocket League)' }: { onPick: (g: Game) => void; disabled?: boolean; placeholder?: string }) {
+export function GameSearch({ onPick, disabled, placeholder = 'Buscar jogo (ex.: Rocket League)' }: { onPick: (g: Game) => void; disabled?: boolean; placeholder?: string }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SearchHit[] | null>(null);
   const [loading, setLoading] = useState(false);

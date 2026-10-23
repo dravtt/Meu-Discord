@@ -18,6 +18,7 @@
     "jsonwebtoken": "^9.0.3",
     "livekit-server-sdk": "^2.19.2",
     "multer": "^2.5.0",
+    "nodemailer": "^10.2.1",
     "pg": "^8.23.1",
     "socket.io": "^4.8.4",
     "zod": "^4.6.7"
@@ -29,6 +30,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.3.0",
     "@types/node": "^26.6.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "socket.io-client": "^4.8.4",
