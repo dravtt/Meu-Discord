@@ -14,7 +14,7 @@ import { sendLoginAlert, sendVerificationCode } from '../mail.js';
 
 export const authRouter = Router();
 
-const username = z.string().trim().toLowerCase().regex(/^[a-z0-9_.]{2,32}$/, 'Use 2 a 32 letras minúsculas, números, _ ou .');
+const username = z.string().trim().toLowerCase().regex(/^[a-z0-9_.]{2,32}$/, 'Nome de usuário: use de 2 a 32 letras minúsculas, números, _ ou . (sem espaços)');
 const password = z.string().min(8).max(128);
 
 const email = z.string().trim().toLowerCase().max(254).email('Digite um e-mail válido');

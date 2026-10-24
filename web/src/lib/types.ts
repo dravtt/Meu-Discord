@@ -135,4 +135,4 @@ export interface Message {
 
 export interface Relationship { user: User; type: 'friend' | 'incoming' | 'outgoing' | 'blocked' }
 export interface ReadState { channelId: string; unread: boolean; mentions: number }
-export interface Invite { code: string; server: { id: string; name: string; iconUrl: string | null; memberCount: number; nsfw?: boolean }; inviter: User; uses: number; maxUses: number | null; expiresAt: string | null }
+export interface Invite { code: string; server: { id: string; name: string; iconUrl: string | null; memberCount: number; onlineCount?: number; nsfw?: boolean; createdAt?: string }; joined?: boolean; inviter: User; uses: number; maxUses: number | null; expiresAt: string | null }

@@ -5,7 +5,7 @@ import { one, query } from '../db.js';
 import { requireAuth, uid } from '../auth.js';
 import { forbidden, HttpError, notFound } from '../errors.js';
 import { P, requireServer } from '../permissions.js';
-import { emitToServer, emitToUser, setServerSubscription } from '../realtime.js';
+import { emitToServer, emitToUser, setServerSubscription, visibleStatus } from '../realtime.js';
 import { getPublicUser } from '../serializers.js';
 import { memberPayload, serverSnapshot } from './servers.js';
 import { assertAdult, assertNotMuted, assertServerSlot, rateLimit, spamGuard } from '../guard.js';
@@ -15,12 +15,19 @@ invitesRouter.use(requireAuth);
 
 const newCode = () => randomBytes(6).toString('base64url');
 
-async function invitePayload(inv: any) {
-  const server = await one('SELECT id, name, icon_url, nsfw FROM servers WHERE id = $1', [inv.server_id]);
-  const count = await one<{ n: number }>('SELECT count(*)::int AS n FROM members WHERE server_id = $1', [inv.server_id]);
+async function invitePayload(inv: any, viewerId?: string) {
+  const server = await one('SELECT id, name, icon_url, nsfw, created_at FROM servers WHERE id = $1', [inv.server_id]);
+  const members = await query<{ user_id: string; status: string }>(
+    'SELECT m.user_id, u.status FROM members m JOIN users u ON u.id = m.user_id WHERE m.server_id = $1', [inv.server_id]);
+  let online = 0;
+  for (const m of members) if ((await visibleStatus(m.user_id, m.status)) !== 'offline') online++;
   return {
     code: inv.code,
-    server: { id: server.id, name: server.name, iconUrl: server.icon_url, memberCount: count!.n, nsfw: !!server.nsfw },
+    server: {
+      id: server.id, name: server.name, iconUrl: server.icon_url, memberCount: members.length, onlineCount: online,
+      nsfw: !!server.nsfw, createdAt: server.created_at,
+    },
+    joined: viewerId ? members.some((m) => m.user_id === viewerId) : undefined,
     inviter: await getPublicUser(inv.inviter_id),
     uses: inv.uses,
     maxUses: inv.max_uses,
@@ -49,13 +56,13 @@ invitesRouter.get('/servers/:serverId/invites', async (req, res) => {
   const serverId = String(req.params.serverId);
   await requireServer(serverId, uid(req), P.MANAGE_SERVER);
   const rows = await query('SELECT * FROM invites WHERE server_id = $1 ORDER BY created_at DESC', [serverId]);
-  res.json(await Promise.all(rows.filter(isUsable).map(invitePayload)));
+  res.json(await Promise.all(rows.filter(isUsable).map((r) => invitePayload(r))));
 });
 
 invitesRouter.get('/invites/:code', async (req, res) => {
   const inv = await one('SELECT * FROM invites WHERE code = $1', [req.params.code]);
   if (!inv || !isUsable(inv)) throw notFound('Convite inválido ou expirado');
-  res.json(await invitePayload(inv));
+  res.json(await invitePayload(inv, uid(req)));
 });
 
 invitesRouter.post('/invites/:code', async (req, res) => {

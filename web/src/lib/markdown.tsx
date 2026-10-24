@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
 import { findChannel, get, memberName } from './store';
+import { inviteCodeOf, onInviteLinkClick } from '../components/modals/ServerModals';
 
 /**
  * Small, safe message formatter: code blocks, inline code, **bold**, *italic*, __underline__,
@@ -46,7 +47,7 @@ function inline(text: string, serverId: string | null, onChannel?: (id: string) 
       const ch = findChannel(t.slice(2, -1));
       out.push(<span key={k} className="mention channel" onClick={() => ch && onChannel?.(ch.id)}>#{ch?.name ?? 'canal'}</span>);
     } else if (t.startsWith('@')) out.push(<span key={k} className="mention">{t}</span>);
-    else out.push(<a key={k} href={t} target="_blank" rel="noreferrer noopener">{t}</a>);
+    else out.push(<a key={k} href={t} target="_blank" rel="noreferrer noopener" onClick={inviteCodeOf(t) ? onInviteLinkClick : undefined}>{t}</a>);
   }
   if (last < text.length) out.push(text.slice(last));
   return out;

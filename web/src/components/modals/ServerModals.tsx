@@ -1,6 +1,7 @@
 import { Link, Sparkles, Volume2 } from 'lucide-react';
+import type { MouseEvent } from 'react';
 import { useEffect, useState } from 'react';
-import { api } from '../../lib/api';
+import { api, assetUrl } from '../../lib/api';
 import { set, useStore, upsertServer } from '../../lib/store';
 import { uploadImage } from '../../lib/upload';
 import type { Invite, Server } from '../../lib/types';
@@ -70,12 +71,7 @@ export async function joinInviteFromUrl() {
   const match = /#\/convite\/([\w-]+)/.exec(location.hash);
   if (!match) return;
   history.replaceState(null, '', location.pathname);
-  try {
-    const invite = await api<Invite>(`/invites/${match[1]}`);
-    openModal(<InvitePrompt invite={invite} />);
-  } catch {
-    openModal(<Dialog title="Convite inválido"><p>Este convite expirou ou não existe.</p></Dialog>);
-  }
+  await openInvite(match[1]);
 }
 
 function InvitePrompt({ invite }: { invite: Invite }) {
@@ -101,7 +97,78 @@ function InvitePrompt({ invite }: { invite: Invite }) {
   );
 }
 
-export const inviteLink = (code: string) => `${location.origin}${location.pathname}#/convite/${code}`;
+/** Invite links in any message, whatever address they were copied from (localhost, a tunnel, the real site). */
+export const INVITE_URL = /https?:\/\/[^\s<]+?#\/convite\/([\w-]+)/g;
+export const inviteCodeOf = (url: string) => /#\/convite\/([\w-]+)/.exec(url)?.[1] ?? null;
+
+/** Opens the join prompt here instead of following the link to another tab. */
+export async function openInvite(code: string) {
+  try {
+    const invite = await api<Invite>(`/invites/${encodeURIComponent(code)}`);
+    if (invite.joined) { set({ view: { kind: 'server', serverId: invite.server.id }, openThreadId: null }); return; }
+    openModal(<InvitePrompt invite={invite} />);
+  } catch {
+    openModal(<Dialog title="Convite inválido"><p>Este convite expirou ou não existe.</p></Dialog>);
+  }
+}
+
+export function onInviteLinkClick(e: MouseEvent<HTMLAnchorElement>) {
+  const code = inviteCodeOf(e.currentTarget.href);
+  if (!code) return;
+  e.preventDefault();
+  void openInvite(code);
+}
+
+const isLocal = () => /^(localhost|127\.|\[::1\]|0\.0\.0\.0)/.test(location.hostname) || location.protocol === 'file:';
+let publicBase: Promise<string> | null = null;
+/** Where friends can reach this Voka: this page's own address, or (on the host PC) the tunnel or PUBLIC_URL. */
+const inviteBase = () => publicBase ??= (isLocal()
+  ? api<{ url: string }>('/public-url').then((r) => r.url).catch(() => '')
+  : Promise.resolve(''));
+
+export const inviteLink = (code: string, base = '') => `${base || `${location.origin}${location.pathname}`}#/convite/${code}`;
+
+/** The card shown under a message that has an invite link, with a button to join right here. */
+export function InviteEmbed({ code }: { code: string }) {
+  const [invite, setInvite] = useState<Invite | null | 'gone'>(null);
+  const [busy, setBusy] = useState(false);
+  const member = useStore((s) => (invite && invite !== 'gone' ? !!s.servers[invite.server.id] : false));
+  useEffect(() => { api<Invite>(`/invites/${encodeURIComponent(code)}`).then(setInvite).catch(() => setInvite('gone')); }, [code]);
+  if (!invite) return <div className="invite-embed loading"><small>Carregando convite…</small></div>;
+  if (invite === 'gone') {
+    return (
+      <div className="invite-embed">
+        <small className="invite-embed-title">Convite inválido</small>
+        <div className="invite-embed-row"><div className="invite-embed-icon gone">?</div><div><strong>Este convite expirou</strong><p className="muted small">Peça um convite novo para quem te enviou.</p></div></div>
+      </div>
+    );
+  }
+  const srv = invite.server;
+  const created = srv.createdAt ? new Date(srv.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : null;
+  return (
+    <div className="invite-embed">
+      <small className="invite-embed-title">Você recebeu um convite para entrar em um servidor</small>
+      <div className="invite-embed-row">
+        <div className="invite-embed-icon">{srv.iconUrl ? <img src={assetUrl(srv.iconUrl)} alt="" /> : srv.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase()}</div>
+        <div className="invite-embed-info">
+          <strong>{srv.name}{srv.nsfw && <span className="nsfw-tag">+18</span>}</strong>
+          <div className="invite-embed-counts">
+            <span><i className="dot on" />{srv.onlineCount ?? 0} online</span>
+            <span><i className="dot" />{srv.memberCount} {srv.memberCount === 1 ? 'membro' : 'membros'}</span>
+          </div>
+          {created && <small className="muted">Criado em {created}</small>}
+        </div>
+      </div>
+      {member
+        ? <button className="btn invite-embed-btn joined" onClick={() => set({ view: { kind: 'server', serverId: srv.id }, openThreadId: null })}>Ir para o servidor</button>
+        : <button className="btn invite-embed-btn" disabled={busy} onClick={async () => {
+            if (srv.nsfw) { openModal(<InvitePrompt invite={invite} />); return; }
+            setBusy(true);
+            try { await joinInvite(code); } catch (e) { openModal(<Dialog title="Não deu para entrar"><p>{(e as Error).message}</p></Dialog>); } finally { setBusy(false); }
+          }}>Aceitar convite</button>}
+    </div>
+  );
+}
 
 export function InviteModal({ serverId }: { serverId: string }) {
   const [invite, setInvite] = useState<Invite | null>(null);
@@ -110,11 +177,14 @@ export function InviteModal({ serverId }: { serverId: string }) {
   const [copied, setCopied] = useState(false);
   const server = useStore((s) => s.servers[serverId]);
 
+  const [base, setBase] = useState<string | null>(isLocal() ? null : '');
+  useEffect(() => { void inviteBase().then(setBase); }, []);
+
   useEffect(() => {
     api<Invite>(`/servers/${serverId}/invites`, { body: { maxAgeSeconds: maxAge, maxUses } }).then(setInvite).catch(() => {});
   }, [serverId, maxAge, maxUses]);
 
-  const link = invite ? inviteLink(invite.code) : '';
+  const link = invite && base !== null ? inviteLink(invite.code, base) : '';
   return (
     <Dialog title={`Convidar amigos para ${server?.name ?? ''}`}>
       <label>Link do convite
@@ -124,6 +194,9 @@ export function InviteModal({ serverId }: { serverId: string }) {
         </div>
       </label>
       <p className="muted small">Código: <code>{invite?.code}</code></p>
+      {isLocal() && base === '' && (
+        <p className="invite-local-warning">Este link usa <strong>localhost</strong> e só abre no seu PC. Para mandar fora do Voka (WhatsApp etc.), ligue o túnel e abra o Voka uma vez pelo link do túnel, ou coloque PUBLIC_URL no server\.env. Dentro do Voka o convite funciona de qualquer jeito.</p>
+      )}
       <div className="row gap">
         <label>Expira em
           <select value={maxAge} onChange={(e) => setMaxAge(Number(e.target.value))}>

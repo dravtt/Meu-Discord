@@ -16,6 +16,8 @@ export const config = {
     apiKey: process.env.LIVEKIT_API_KEY ?? 'devkey',
     apiSecret: process.env.LIVEKIT_API_SECRET ?? 'secret',
   },
+  /** Address friends use (e.g. https://voka.app.br). Invite links use it; if empty, the last public address seen (a tunnel). */
+  publicUrl: (process.env.PUBLIC_URL ?? '').replace(/\/+$/, ''),
   uploadDir: process.env.UPLOAD_DIR ?? './uploads',
   webDist: process.env.WEB_DIST ?? '../web/dist',
   maxUploadBytes: 80 * 1024 * 1024,

@@ -16,7 +16,8 @@ async function register(page, username, display) {
   await page.getByLabel('E-mail').fill(`${username}@teste.com.br`);
   await page.getByLabel('Nome de usuário').fill(username);
   await page.getByLabel('Nome de exibição').fill(display);
-  await page.getByLabel('Senha').fill('senha-forte-123');
+  await page.getByLabel('Senha', { exact: true }).fill('senha-forte-123');
+  await page.getByLabel('Confirmar senha', { exact: true }).fill('senha-forte-123');
   await page.getByLabel('Data de nascimento').fill('2000-03-15');
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await page.getByText('Amigos').first().waitFor();
@@ -135,6 +136,32 @@ await step('Amizade e DM', async () => {
   await bia.locator('.dm-item', { hasText: 'Ana' }).click();
   await bia.locator('.message', { hasText: 'mensagem privada' }).waitFor();
   await bia.screenshot({ path: `${SHOTS}/06-dm.png` });
+});
+await step('Convite enviado na DM vira cartão e entra sem sair da aba', async () => {
+  await bia.getByLabel('Adicionar um servidor').click();
+  await bia.getByText('Criar o meu').click();
+  await bia.getByLabel('Nome do servidor').fill('Clube da Bia');
+  await bia.getByRole('button', { name: 'Criar', exact: true }).click();
+  await bia.getByRole('heading', { name: 'Bem-vindo a #geral!' }).waitFor();
+  await bia.locator('.sidebar-header').click();
+  await bia.getByText('Convidar pessoas').click();
+  await bia.waitForFunction(() => document.querySelector('.dialog input[readonly]')?.value.includes('#/convite/'));
+  const biaLink = await bia.locator('.dialog input[readonly]').inputValue();
+  await bia.keyboard.press('Escape');
+  await bia.getByLabel('Mensagens diretas').click();
+  await bia.locator('.dm-item', { hasText: 'Ana' }).click();
+  await bia.getByPlaceholder('Conversar em @Ana').fill(`vem pro meu servidor ${biaLink}`);
+  await bia.keyboard.press('Enter');
+  const card = ana.locator('.invite-embed', { hasText: 'Clube da Bia' });
+  await card.getByText('1 online').waitFor();
+  await ana.screenshot({ path: `${SHOTS}/06b-invite-embed.png` });
+  const pages = ana.context().pages().length;
+  await card.getByRole('button', { name: 'Aceitar convite', exact: true }).click();
+  await ana.getByRole('heading', { name: 'Bem-vindo a #geral!' }).waitFor();
+  if (ana.context().pages().length !== pages) throw new Error('abriu outra aba');
+  await ana.getByLabel('Mensagens diretas').click();
+  await ana.locator('.dm-item', { hasText: 'Bia' }).click();
+  await card.getByRole('button', { name: 'Ir para o servidor', exact: true }).waitFor();
 });
 await step('Upload de imagem', async () => {
   const png = Buffer.from('89504e470d0a1a0a0000000d494844520000001000000010080200000090916836000000174944415478da63fcffff3f0329806a8c1a35603000004c1ffd1d3a2c2c6c0000000049454e44ae426082', 'hex');

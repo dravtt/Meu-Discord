@@ -24,7 +24,8 @@ console.log('settings via IPC:', JSON.stringify(await main.evaluate(() => window
 await main.evaluate(() => { window.nexoNative.setBadge(3); window.nexoNative.notify({ title: 'Teste', body: 'Olá', channelId: 'x' }); });
 await main.getByText('Precisa de uma conta? Cadastre-se').click();
 await main.getByLabel('Nome de usuário').fill('desk' + (Date.now() % 100000));
-await main.getByLabel('Senha').fill('senha-forte-123');
+await main.getByLabel('Senha', { exact: true }).fill('senha-forte-123');
+await main.getByLabel('Confirmar senha', { exact: true }).fill('senha-forte-123');
 await main.getByRole('button', { name: 'Continuar' }).click();
 await main.getByText('Adicionar amigo').first().waitFor();
 await main.screenshot({ path: `${shots}/08-desktop.png` });

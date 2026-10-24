@@ -17,6 +17,11 @@ import { soundboardRouter } from './routes/soundboard.js';
 import { gamesRouter } from './routes/games.js';
 import { moderationRouter } from './routes/moderation.js';
 
+// Only quick-tunnel hosts, and only from cloudflared on this machine: Cloudflare routes by Host, so a
+// request that came through our tunnel carries our tunnel's name; anything else could be forged.
+const TUNNEL_HOST = /^[a-z0-9-]+\.trycloudflare\.com$/;
+let lastPublicUrl = '';
+
 export function createApp() {
   const app = express();
   app.use(cors({ origin: config.webOrigin, credentials: true }));
@@ -27,6 +32,14 @@ export function createApp() {
     setHeaders: (res) => { res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"); res.setHeader('X-Content-Type-Options', 'nosniff'); },
   }));
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
+  // Remember the last address people reached us through from outside (e.g. a Cloudflare tunnel), so
+  // invite links copied on the host PC (localhost) still work for friends.
+  app.use((req, _res, next) => {
+    const host = req.get('host') ?? '';
+    if (TUNNEL_HOST.test(host) && /^(::ffff:)?127\.|^::1$/.test(req.socket.remoteAddress ?? '')) lastPublicUrl = `https://${host}`;
+    next();
+  });
+  app.get('/api/public-url', (_req, res) => res.json({ url: config.publicUrl || lastPublicUrl }));
   for (const router of [authRouter, relationshipsRouter, serversRouter, channelsRouter, messagesRouter, dmsRouter, invitesRouter, voiceRouter, uploadsRouter, soundboardRouter, gamesRouter, moderationRouter]) {
     app.use('/api', router);
   }

@@ -18,6 +18,7 @@ import { NewGroupModal } from './modals/NewGroupModal';
 import { GroupIcon, GroupSettings } from './modals/GroupSettings';
 import { StyledName } from '../lib/nameStyle';
 import { ReportDialog } from './Moderation';
+import { INVITE_URL, InviteEmbed } from './modals/ServerModals';
 
 const EMPTY: Message[] = [];
 
@@ -217,6 +218,7 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
               </div>
             )}
             {m.attachments.map((a) => <AttachmentView key={a.id} a={a} />)}
+            {!editing && inviteCodes(m.content).map((code) => <InviteEmbed key={code} code={code} />)}
             {m.threadId && <ThreadLink threadId={m.threadId} />}
             {m.reactions.length > 0 && (
               <div className="reactions">
@@ -247,6 +249,10 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
       </article>
     </>
   );
+}
+
+function inviteCodes(text: string) {
+  return [...new Set([...text.matchAll(INVITE_URL)].map((x) => x[1]))].slice(0, 3);
 }
 
 function AttachmentView({ a }: { a: Message['attachments'][number] }) {
