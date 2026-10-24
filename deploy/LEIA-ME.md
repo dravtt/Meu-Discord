@@ -15,14 +15,20 @@ Este kit instala o Voka **ao lado** do que já roda na TOWER, sem substituir nem
 | `voka-backup` | Backup diário verificado do banco | sem porta | 0,1 vCPU · 256 MB |
 | **Total** | | | **2 vCPU · 3,75 GB** |
 
-**Build da imagem.** O build (`npm ci`, `vite build`) não roda no Docker principal. Ele roda num contentor BuildKit próprio, `voka-builder`, limitado a **2 vCPU e 3 GB de RAM, sem swap** (`VOKA_BUILD_CPUS` e `VOKA_BUILD_MEMORY` no `.env`). Esse contentor só fica ligado durante o build (`install.sh` e `update.sh`) e é parado logo depois. O cache do build fica num volume só dele. Os contentores do Voka nunca passam do teto da tabela acima, e o build nunca passa do teto dele.
+**Build da imagem.** O build (`npm ci`, `vite build`) tem um teto próprio: **1 vCPU e 2 GB de RAM, sem swap** (`VOKA_BUILD_CPUS` e `VOKA_BUILD_MEMORY` no `.env`). O pico medido foi de cerca de 0,4 GB. Ele só existe durante o `install.sh` e o `update.sh`. Nessa janela, o Voka inteiro usa no máximo **3 vCPU e 5,75 GB** (os contentores + o build). Fora dela, usa no máximo 2 vCPU e 3,75 GB. Faça as atualizações num horário de pouco uso.
+
+Como o teto é aplicado:
+- **sem o plugin buildx** (o caso da TOWER hoje): o builder clássico do Docker roda cada etapa do build num contentor temporário com `--cpu-quota` e `--memory`. **Nada precisa ser instalado** no Docker da TOWER;
+- **com o plugin buildx**: o build roda num contentor BuildKit próprio, `voka-builder`, com o mesmo teto, parado logo depois do build.
+
+`VOKA_BUILD_MODE=auto` (padrão) escolhe sozinho; `classic` ou `buildx` força um dos dois. O builder clássico aparece como "deprecated" nas versões novas do Docker, mas continua funcionando.
 
 Recursos exclusivos do Voka:
 - projeto Compose `voka`;
 - rede `voka_net`;
 - volumes `voka_pgdata` e `voka_uploads`;
 - banco e usuário `voka`;
-- builder `voka-builder` (contentor `buildx_buildkit_voka-builder0`, só durante o build);
+- só com buildx: builder `voka-builder` (contentor `buildx_buildkit_voka-builder0`, só durante o build);
 - pasta do projeto (sugestão: `/opt/voka`).
 
 Os logs são rotacionados (5 arquivos de 20 MB por contentor).
@@ -104,7 +110,7 @@ O script faz o seguinte:
 1. roda o preflight de novo e para se houver erro;
 2. mostra o plano e pede `SIM`;
 3. gera o `livekit.yaml` (permissão 600);
-4. constrói a imagem no `voka-builder` limitado e liga os contentores;
+4. constrói a imagem com o teto do build e liga os contentores;
 5. espera **todos** ficarem saudáveis;
 6. roda os testes locais. Se algum falhar, o script termina com erro.
 
@@ -183,7 +189,7 @@ sudo bash deploy/update.sh
 O script faz o seguinte:
 1. faz um backup **verificado** do banco (`backups/voka-antes-update-…sql.gz`);
 2. regista em `deploy/.ultima-atualizacao` o **ID exato** da imagem em uso e o nome do backup. O registo não depende de tags;
-3. constrói a nova versão no `voka-builder` limitado e reinicia **só** o `voka-app`;
+3. constrói a nova versão com o teto do build e reinicia **só** o `voka-app`;
 4. espera ficar saudável e roda os testes. Se falhar, termina com erro e mostra o comando de rollback.
 
 ## Rollback

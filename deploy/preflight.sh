@@ -19,8 +19,8 @@ step "Docker"
 if command -v docker >/dev/null && docker compose version >/dev/null 2>&1; then
   ok "$(docker --version | cut -d, -f1), $(docker compose version --short 2>/dev/null | sed 's/^/compose /')"
 else fail "Docker ou o plugin 'docker compose' não encontrado"; fi
-if docker buildx version >/dev/null 2>&1; then ok "buildx $(docker buildx version | awk '{print $2}') (build com teto de CPU/RAM)"
-else fail "plugin 'docker buildx' não encontrado (pacote docker-buildx-plugin): o build limitado precisa dele"; fi
+if docker buildx version >/dev/null 2>&1; then ok "buildx $(docker buildx version | awk '{print $2}'): build num contentor próprio com teto de CPU/RAM"
+else ok "sem buildx: o build usa o builder clássico do Docker, com o mesmo teto de CPU/RAM (nada a instalar)"; fi
 docker buildx inspect voka-builder >/dev/null 2>&1 && info "builder voka-builder já existe (cache do build do Voka)"
 for n in voka-app voka-postgres voka-livekit voka-backup; do
   docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$n" && info "contentor $n já existe (instalação anterior do Voka)"

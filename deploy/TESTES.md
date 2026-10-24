@@ -1,4 +1,4 @@
-# Testes do kit (v2 e v3, 24/10/2026)
+# Testes do kit (v2, v3 e v3.1, 24/10/2026)
 
 Os testes foram feitos numa máquina de teste (Linux, Docker 27, Compose v2) que imita a TOWER:
 - **nginx ocupando 80/443** com a config `nginx-fase2-https.conf` e um certificado próprio para o domínio de teste `voka.test`;
@@ -113,6 +113,20 @@ Notas:
 - O pico do build foi medido com o cache de pacotes do npm desta máquina. Na TOWER, o primeiro build baixa tudo e pode demorar mais, mas continua dentro do teto de 2 vCPU / 3 GB.
 - Ao ser criado, o `voka-builder` baixa a imagem `moby/buildkit` do Docker Hub, uma vez só.
 - O teste ponta a ponta para numa etapa que depende da loja Steam (busca de jogos no perfil). Ela não tem acesso à internet na máquina de teste, e isso não tem relação com o kit.
+
+## 9. TOWER sem buildx (builder clássico)
+A auditoria da TOWER mostrou `docker: unknown command: docker buildx`. Para não mexer no Docker de lá, o kit agora também funciona sem o plugin. Os testes desta seção foram feitos **com o plugin buildx retirado** da máquina de teste.
+
+| Teste | Resultado |
+|---|---|
+| `preflight.sh` sem buildx: "o build usa o builder clássico do Docker, com o mesmo teto" (sem erro) | ✅ |
+| Build clássico com o teto padrão novo (1 vCPU / 2 GB): cada etapa (`npm ci`, `npm run build`…) roda num contentor com `CpuQuota=100000`, `Memory=MemorySwap=2147483648` (`docker inspect` durante o build) | ✅ |
+| Com teto de 2 vCPU / 3 GB: `CpuQuota=200000`, `Memory=3221225472`; pico medido de ~200% CPU (2 vCPU, o teto) e ~280 MB de RAM | ✅ |
+| `install.sh` completo sem buildx: 4 contentores saudáveis, smoke 0 erros | ✅ |
+| `update.sh` sem buildx, e depois `rollback.sh --manter-banco` | ✅ |
+| Nenhum contentor temporário do build fica para trás (`--force-rm`) | ✅ |
+
+Consumo máximo durante uma atualização: 2 vCPU / 3,75 GB (contentores) + 1 vCPU / 2 GB (build) = **3 vCPU / 5,75 GB**, só durante o build. Fora do build, o máximo é 2 vCPU / 3,75 GB.
 
 ## Observações sobre o ambiente de teste
 O build usou uma cópia temporária do `Dockerfile` com um espelho do Docker Hub e um certificado da máquina de teste, por limite de downloads. Pelo mesmo motivo, o `voka-builder` de teste foi criado com `VOKA_BUILDKIT_IMAGE` e `VOKA_BUILDKIT_CONFIG` (espelho), duas opções que ficam vazias na TOWER. Essa alteração **não** está no kit: o `Dockerfile` entregue é o original.
