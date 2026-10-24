@@ -45,8 +45,10 @@ let link;
 await step('Ana gera convite', async () => {
   await ana.locator('.sidebar-header').click();
   await ana.getByText('Convidar pessoas').click();
-  await ana.waitForFunction(() => document.querySelector('.dialog input[readonly]')?.value.includes('#/convite/'));
+  await ana.waitForFunction(() => document.querySelector('.dialog input[readonly]')?.value.includes('/convite/'));
   link = await ana.locator('.dialog input[readonly]').inputValue();
+  const preview = await (await fetch(link.replace('http://localhost', 'http://127.0.0.1'))).text();
+  if (!preview.includes('og:title" content="Convite para Comunidade Voka"')) throw new Error('prévia do link sem og:title');
   await ana.screenshot({ path: `${SHOTS}/02-invite.png` });
   await ana.keyboard.press('Escape');
 });
@@ -145,7 +147,7 @@ await step('Convite enviado na DM vira cartão e entra sem sair da aba', async (
   await bia.getByRole('heading', { name: 'Bem-vindo a #geral!' }).waitFor();
   await bia.locator('.sidebar-header').click();
   await bia.getByText('Convidar pessoas').click();
-  await bia.waitForFunction(() => document.querySelector('.dialog input[readonly]')?.value.includes('#/convite/'));
+  await bia.waitForFunction(() => document.querySelector('.dialog input[readonly]')?.value.includes('/convite/'));
   const biaLink = await bia.locator('.dialog input[readonly]').inputValue();
   await bia.keyboard.press('Escape');
   await bia.getByLabel('Mensagens diretas').click();

@@ -98,8 +98,8 @@ function InvitePrompt({ invite }: { invite: Invite }) {
 }
 
 /** Invite links in any message, whatever address they were copied from (localhost, a tunnel, the real site). */
-export const INVITE_URL = /https?:\/\/[^\s<]+?#\/convite\/([\w-]+)/g;
-export const inviteCodeOf = (url: string) => /#\/convite\/([\w-]+)/.exec(url)?.[1] ?? null;
+export const INVITE_URL = /https?:\/\/[^\s<]+?\/(?:#\/)?convite\/([\w-]+)/g;
+export const inviteCodeOf = (url: string) => /\/(?:#\/)?convite\/([\w-]+)/.exec(url)?.[1] ?? null;
 
 /** Opens the join prompt here instead of following the link to another tab. */
 export async function openInvite(code: string) {
@@ -126,7 +126,8 @@ const inviteBase = () => publicBase ??= (isLocal()
   ? api<{ url: string }>('/public-url').then((r) => r.url).catch(() => '')
   : Promise.resolve(''));
 
-export const inviteLink = (code: string, base = '') => `${base || `${location.origin}${location.pathname}`}#/convite/${code}`;
+// A path, not a #hash, so the server can answer link previews (WhatsApp etc.) with the server's name and picture.
+export const inviteLink = (code: string, base = '') => `${base || location.origin}/convite/${code}`;
 
 /** The card shown under a message that has an invite link, with a button to join right here. */
 export function InviteEmbed({ code }: { code: string }) {
