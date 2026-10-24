@@ -25,8 +25,8 @@ S
 echo "  imagem anterior: ${prev_id:7:12}"
 
 step "Construindo a versão nova"
-"${DC[@]}" build app
-"${DC[@]}" up -d --no-deps app
+build_app
+"${DC[@]}" up -d --no-deps --no-build app
 if wait_healthy && bash smoke-test.sh --local; then
   echo; echo "Atualizado. Para voltar:  sudo bash deploy/rollback.sh"
 else

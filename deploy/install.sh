@@ -23,7 +23,13 @@ fi
 
 lock
 load_env
-[ -n "${VOKA_ADMIN_OK:-}${NEXO_ADMIN_EMAILS:-}${NEXO_ADMINS:-}" ] || { echo "Defina NEXO_ADMIN_EMAILS no deploy/.env (e-mail de quem administra o Voka)."; exit 1; }
+# Only NEXO_ADMIN_EMAILS grants admin in production (NEXO_ADMINS by username is ignored by the server there).
+admin_re='^[^@,[:space:]]+@[^@,[:space:]]+\.[^@,[:space:]]+$'
+[ -n "${NEXO_ADMIN_EMAILS:-}" ] || { echo "Defina NEXO_ADMIN_EMAILS no deploy/.env (e-mail de quem administra o Voka)."; exit 1; }
+IFS=, read -ra _admins <<< "$NEXO_ADMIN_EMAILS"
+for a in "${_admins[@]}"; do a="${a// /}"; [[ "$a" =~ $admin_re ]] || { echo "NEXO_ADMIN_EMAILS tem um e-mail inválido: '$a'"; exit 1; }; done
+[ -z "${NEXO_ADMINS:-}" ] || { echo "Remova NEXO_ADMINS do deploy/.env: em produção só vale NEXO_ADMIN_EMAILS."; exit 1; }
+[ -z "${NEXO_FIRST_USER_ADMIN:-}" ] || { echo "Remova NEXO_FIRST_USER_ADMIN do deploy/.env: em produção a primeira conta não vira admin."; exit 1; }
 [ -n "${VOKA_PUBLIC_IP:-}" ] || { echo "Preencha VOKA_PUBLIC_IP no deploy/.env (o preflight.sh mostra o valor)."; exit 1; }
 for v in VOKA_DOMAIN DB_PASSWORD JWT_SECRET LIVEKIT_API_KEY LIVEKIT_API_SECRET; do [ -n "${!v:-}" ] || { echo "Falta $v no deploy/.env"; exit 1; }; done
 
@@ -47,8 +53,8 @@ chmod 600 livekit.yaml .env
 mkdir -p backups && chmod 700 backups
 
 step "Construindo e ligando (a primeira vez demora alguns minutos)"
-"${DC[@]}" build app
-"${DC[@]}" up -d
+build_app
+"${DC[@]}" up -d --no-build
 wait_healthy || { echo "O voka-app não ficou saudável. Veja: ${DC[*]} logs app"; exit 1; }
 for n in voka-livekit voka-backup; do
   for _ in $(seq 1 40); do [ "$(docker inspect -f '{{.State.Health.Status}}' $n)" = healthy ] && break; sleep 3; done

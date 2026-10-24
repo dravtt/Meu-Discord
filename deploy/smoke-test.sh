@@ -27,6 +27,14 @@ done
 if [ "$tot_cpu" -le 2000000000 ] && [ "$tot_mem" -le $((4*1024*1024*1024)) ]; then ok "total: $(awk "BEGIN{print $tot_cpu/1e9}") vCPU, $((tot_mem/1024/1024)) MB (limite combinado: 2 vCPU / 4096 MB)"
 else fail "total acima do combinado: $(awk "BEGIN{print $tot_cpu/1e9}") vCPU, $((tot_mem/1024/1024)) MB"; fi
 
+step "Administração (sem mostrar valores)"
+envs=$(docker exec voka-app printenv 2>/dev/null | cut -d= -f1)
+n=$(docker exec voka-app printenv NEXO_ADMIN_EMAILS 2>/dev/null | tr ',' '\n' | grep -c @ || true)
+[ "$n" -gt 0 ] && ok "NEXO_ADMIN_EMAILS com $n e-mail(s)" || fail "NEXO_ADMIN_EMAILS vazio no voka-app"
+grep -qx NEXO_ADMINS <<< "$envs" && fail "NEXO_ADMINS definido (remova; em produção só vale NEXO_ADMIN_EMAILS)" || ok "sem NEXO_ADMINS"
+grep -qx NEXO_FIRST_USER_ADMIN <<< "$envs" && fail "NEXO_FIRST_USER_ADMIN definido (remova)" || ok "primeira conta não vira admin"
+[ "$(docker exec voka-app printenv NODE_ENV 2>/dev/null)" = production ] && ok "NODE_ENV=production" || fail "NODE_ENV não é production"
+
 step "Backup"
 last=$(ls -1t backups/voka-????-??-??.sql.gz 2>/dev/null | head -1)
 if [ -f backups/FALHOU-ultimo-backup.txt ]; then fail "o último backup automático falhou: $(cat backups/FALHOU-ultimo-backup.txt)"
@@ -34,6 +42,11 @@ elif [ -z "$last" ]; then warn "ainda não há backup automático"
 elif ! verify_dump "$last"; then fail "backup $last inválido"
 elif [ -n "$(find "$last" -mmin +1560)" ]; then fail "último backup tem mais de 26 h: $last"
 else ok "último backup válido: $last ($(du -h "$last" | cut -f1))"; fi
+if [ -f backups/FALHOU-copia-externa.txt ]; then fail "a última cópia externa falhou: $(cat backups/FALHOU-copia-externa.txt)"
+elif [ -z "${VOKA_OFFSITE_DEST:-}" ]; then warn "cópia externa dos backups ainda não configurada (LEIA-ME.md, \"Cópia externa\")"
+elif [ ! -f backups/.copia-externa-ok ]; then warn "cópia externa configurada, mas ainda não rodou"
+elif [ -n "$(find backups/.copia-externa-ok -mmin +1560)" ]; then fail "última cópia externa tem mais de 26 h ($(cat backups/.copia-externa-ok))"
+else ok "cópia externa em dia ($(cat backups/.copia-externa-ok))"; fi
 [ "$(stat -c %a backups)" = 700 ] && ok "pasta backups com permissão 700" || warn "pasta backups com permissão $(stat -c %a backups) (esperado 700)"
 for f in .env livekit.yaml; do [ "$(stat -c %a "$f" 2>/dev/null)" = 600 ] && ok "$f com permissão 600" || fail "$f sem permissão 600"; done
 

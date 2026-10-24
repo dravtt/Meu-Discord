@@ -15,7 +15,7 @@ moderationRouter.use(requireAuth);
 export const REPORT_REASONS = ['spam', 'harassment', 'adult', 'scam', 'other'] as const;
 
 /**
- * Voka admins: accounts whose verified e-mail is in NEXO_ADMIN_EMAILS or whose username is in NEXO_ADMINS.
+ * Voka admins: accounts whose verified e-mail is in NEXO_ADMIN_EMAILS or (outside production) whose username is in NEXO_ADMINS.
  * With neither set, whoever created the first account (only outside production, see config.firstUserAdmin).
  */
 export async function isAdmin(userId: string) {

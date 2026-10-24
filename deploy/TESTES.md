@@ -1,4 +1,4 @@
-# Testes do kit v2 (24/10/2026)
+# Testes do kit (v2 e v3, 24/10/2026)
 
 Os testes foram feitos numa máquina de teste (Linux, Docker 27, Compose v2) que imita a TOWER:
 - **nginx ocupando 80/443** com a config `nginx-fase2-https.conf` e um certificado próprio para o domínio de teste `voka.test`;
@@ -12,7 +12,7 @@ Nada foi executado na TOWER.
 | Teste | Resultado |
 |---|---|
 | `check-kit.sh`: nenhum arquivo com CRLF | ✅ |
-| `bash -n` em todos os 12 scripts | ✅ |
+| `bash -n` em todos os 13 scripts | ✅ |
 | `docker compose config` com um `.env` de teste | ✅ |
 | `nginx -t` com `nginx-fase1-http.conf` | ✅ |
 | `nginx -t` com `nginx-fase2-https.conf` | ✅ |
@@ -86,8 +86,33 @@ Detalhes do T8:
 - ⚠️ **Chamada real entre redes diferentes** (Wi-Fi × 4G). Na máquina de teste, as duas pontas estavam no mesmo host.
 - ⚠️ **NAT da VPS**: se o IP público não estiver na interface da VPS, confirmar que as portas mantêm o mesmo número por fora e por dentro.
 - ⚠️ **Certificado real** do Let's Encrypt (certbot, fase 1 → fase 2) e `certbot renew --dry-run`.
+- ⚠️ **Cópia externa para a máquina real** (KHUMOTONE ou outra): chave, conta restrita e primeiro envio.
 - ⚠️ **Consumo com uso real**: acompanhar `docker stats` e o tráfego de rede no painel durante chamadas.
 - TURN/TLS na 443 **não** está ativo. A alternativa para redes que bloqueiam UDP é o TCP 7881. Redes que só deixam passar a 443 vão precisar de TURN/TLS, como fase posterior.
 
+## 8. Kit v3: pendências da auditoria
+Os testes desta seção foram feitos com o kit v3 instalado do zero. Na máquina de teste havia o nginx em 80/443 e um servidor SSH como destino da cópia externa.
+
+| Teste | Resultado |
+|---|---|
+| **Build limitado**: `install.sh` e `update.sh` constroem no `voka-builder`; `docker inspect` do builder mostra `CpuQuota=200000/CpuPeriod=100000` (2 vCPU), `Memory=MemorySwap=3221225472` (3 GB, sem swap) | ✅ |
+| Build sem cache medido dentro do builder (amostras a cada ~2 s): pico de ~53% de 1 vCPU e ~424 MB de RAM | ✅ |
+| O builder fica parado (`Exited`) depois do build; `uninstall.sh` remove-o | ✅ |
+| **Admin**: `install.sh` recusa `NEXO_ADMIN_EMAILS=ana` (inválido), recusa `NEXO_ADMINS=…` e recusa `NEXO_FIRST_USER_ADMIN=on` | ✅ |
+| Servidor com `NODE_ENV=production` e `NEXO_ADMINS=jacques`: lista de admins por usuário **vazia**, `firstUserAdmin=false` | ✅ |
+| `smoke-test.sh` confere dentro do `voka-app`: NEXO_ADMIN_EMAILS com 1 e-mail, sem NEXO_ADMINS, sem NEXO_FIRST_USER_ADMIN, NODE_ENV=production (sem mostrar valores) | ✅ |
+| **Cópia externa** `backup-offsite.sh`: banco + pacote dos uploads enviados por SSH a uma conta restrita; conferência `--checksum` sem diferenças; marcador `.copia-externa-ok` | ✅ |
+| Destino inacessível: sai com erro, cria `FALHOU-copia-externa.txt`, `smoke-test.sh` sai com erro; volta ao normal na cópia seguinte | ✅ |
+| Arquivo adulterado no destino: a cópia seguinte o substitui e a conferência passa | ✅ |
+| **Restauração a partir da cópia externa**: backup trazido do destino e restaurado com `restore.sh` (a tabela criada depois sumiu, as 11 migrations ficaram) | ✅ |
+| `update.sh` com o build limitado: saudável, smoke-test 0 erros | ✅ |
+| Teste ponta a ponta no navegador através do nginx, de novo com o kit v3: cadastro, convites, chat, DM, upload, ligações e canal de voz com câmera | ✅ |
+| `smoke-test.sh` pelo domínio, completo | ✅ 0 erros, 0 avisos |
+
+Notas:
+- O pico do build foi medido com o cache de pacotes do npm desta máquina. Na TOWER, o primeiro build baixa tudo e pode demorar mais, mas continua dentro do teto de 2 vCPU / 3 GB.
+- Ao ser criado, o `voka-builder` baixa a imagem `moby/buildkit` do Docker Hub, uma vez só.
+- O teste ponta a ponta para numa etapa que depende da loja Steam (busca de jogos no perfil). Ela não tem acesso à internet na máquina de teste, e isso não tem relação com o kit.
+
 ## Observações sobre o ambiente de teste
-O build usou uma cópia temporária do `Dockerfile` com um espelho do Docker Hub e um certificado da máquina de teste, por limite de downloads. Essa alteração **não** está no kit: o `Dockerfile` entregue é o original.
+O build usou uma cópia temporária do `Dockerfile` com um espelho do Docker Hub e um certificado da máquina de teste, por limite de downloads. Pelo mesmo motivo, o `voka-builder` de teste foi criado com `VOKA_BUILDKIT_IMAGE` e `VOKA_BUILDKIT_CONFIG` (espelho), duas opções que ficam vazias na TOWER. Essa alteração **não** está no kit: o `Dockerfile` entregue é o original.

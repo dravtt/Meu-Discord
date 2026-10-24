@@ -1,4 +1,4 @@
-# Voka na VPS TOWER: guia de instalação (kit v2, para revisão)
+# Voka na VPS TOWER: guia de instalação (kit v3, para revisão)
 
 Este kit instala o Voka **ao lado** do que já roda na TOWER, sem substituir nem interromper nada.
 - Nenhum script altera a máquina sem pedir confirmação (é preciso digitar `SIM`).
@@ -15,11 +15,14 @@ Este kit instala o Voka **ao lado** do que já roda na TOWER, sem substituir nem
 | `voka-backup` | Backup diário verificado do banco | sem porta | 0,1 vCPU · 256 MB |
 | **Total** | | | **2 vCPU · 3,75 GB** |
 
+**Build da imagem.** O build (`npm ci`, `vite build`) não roda no Docker principal. Ele roda num contentor BuildKit próprio, `voka-builder`, limitado a **2 vCPU e 3 GB de RAM, sem swap** (`VOKA_BUILD_CPUS` e `VOKA_BUILD_MEMORY` no `.env`). Esse contentor só fica ligado durante o build (`install.sh` e `update.sh`) e é parado logo depois. O cache do build fica num volume só dele. Os contentores do Voka nunca passam do teto da tabela acima, e o build nunca passa do teto dele.
+
 Recursos exclusivos do Voka:
 - projeto Compose `voka`;
 - rede `voka_net`;
 - volumes `voka_pgdata` e `voka_uploads`;
 - banco e usuário `voka`;
+- builder `voka-builder` (contentor `buildx_buildkit_voka-builder0`, só durante o build);
 - pasta do projeto (sugestão: `/opt/voka`).
 
 Os logs são rotacionados (5 arquivos de 20 MB por contentor).
@@ -41,6 +44,7 @@ Os logs são rotacionados (5 arquivos de 20 MB por contentor).
 | `update.sh` | Atualiza (backup + versão anterior registada) | Sim, com confirmação |
 | `rollback.sh` | Volta à versão anterior exata | Sim, com confirmação |
 | `restore.sh` | Restaura um backup do banco | Sim, com confirmação |
+| `backup-offsite.sh` | Copia os backups e os uploads para outra máquina | Só envia para o destino; agendado pelo administrador |
 | `uninstall.sh` | Remove os contentores e mantém os dados | Sim, com confirmação |
 | `lib.sh`, `backup-lib.sh`, `backup-loop.sh` | Funções usadas pelos scripts | — |
 
@@ -49,9 +53,9 @@ Os logs são rotacionados (5 arquivos de 20 MB por contentor).
 ## Passo a passo
 
 ### 0. Código na VPS (sem CRLF)
-Os scripts precisam de quebras de linha Unix (LF). O repositório tem um `.gitattributes` que garante isso. Use uma destas formas:
+O `Dockerfile` precisa do **projeto inteiro** (`server`, `web`, `desktop`, os `package.json` e o `package-lock.json`), e não só da pasta `deploy`. Os scripts precisam de quebras de linha Unix (LF). O repositório tem um `.gitattributes` que garante isso. Use uma destas formas:
 - `git clone https://github.com/dravtt/Meu-Discord.git /opt/voka` (repositório privado: token só de leitura);
-- ou um ZIP feito com `git archive` (ele respeita o `.gitattributes`), copiado por `scp`.
+- ou o ZIP completo `voka-completo.zip`, feito com `git archive` (ele respeita o `.gitattributes` e só leva arquivos do repositório, nunca `.env`), copiado por `scp` e aberto com `unzip voka-completo.zip -d /opt/voka`.
 
 Não copie a pasta do Windows diretamente, e **nunca** envie arquivos `.env`. O `deploy/.env` é criado na própria VPS.
 
@@ -83,7 +87,10 @@ sudo bash deploy/install.sh
 ```
 Na primeira execução, o script **só cria o `deploy/.env`** (permissão 600), com senhas aleatórias, e para. Revise o arquivo:
 - `VOKA_DOMAIN` e `VOKA_PUBLIC_IP` (o IP público que as chamadas anunciam);
-- `NEXO_ADMIN_EMAILS`: **obrigatório**. É o e-mail de quem administra o Voka. Só vale depois de essa conta confirmar o e-mail com o código. Em produção **não existe** "a primeira conta vira admin";
+- `NEXO_ADMIN_EMAILS`: **obrigatório**. É o e-mail de quem administra o Voka. Só vale depois de essa conta confirmar o e-mail com o código. É a **única** forma de ser admin em produção:
+  - o servidor ignora `NEXO_ADMINS` (por nome de usuário) quando `NODE_ENV=production`;
+  - não existe "a primeira conta vira admin";
+  - o `install.sh` recusa instalar se faltar `NEXO_ADMIN_EMAILS`, se algum e-mail for inválido ou se `NEXO_ADMINS` ou `NEXO_FIRST_USER_ADMIN` estiverem no `.env`; o `smoke-test.sh` confere o mesmo dentro do contentor, sem mostrar os valores;
 - as portas, se alguma estiver em uso;
 - `SMTP_URL` e `MAIL_FROM`, para os e-mails de verificação.
 
@@ -97,7 +104,7 @@ O script faz o seguinte:
 1. roda o preflight de novo e para se houver erro;
 2. mostra o plano e pede `SIM`;
 3. gera o `livekit.yaml` (permissão 600);
-4. constrói a imagem e liga os contentores;
+4. constrói a imagem no `voka-builder` limitado e liga os contentores;
 5. espera **todos** ficarem saudáveis;
 6. roda os testes locais. Se algum falhar, o script termina com erro.
 
@@ -149,7 +156,8 @@ O `smoke-test.sh` verifica:
 - os 4 contentores `running` e `healthy`, sem reinícios;
 - o PostgreSQL sem porta publicada e todos só na rede `voka_net`;
 - os **limites efetivos** (`docker inspect`), com a soma até 2 vCPU / 4 GB;
-- o último backup válido e com menos de 26 h, e as permissões 700/600;
+- as regras de administrador (acima) e `NODE_ENV=production`;
+- o último backup válido e com menos de 26 h, a cópia externa em dia, e as permissões 700/600;
 - site e voz em 127.0.0.1;
 - `https://DOMINIO/api/health`, `/rtc` (resposta 401), WebSocket do chat (101) e validade do certificado.
 
@@ -175,7 +183,7 @@ sudo bash deploy/update.sh
 O script faz o seguinte:
 1. faz um backup **verificado** do banco (`backups/voka-antes-update-…sql.gz`);
 2. regista em `deploy/.ultima-atualizacao` o **ID exato** da imagem em uso e o nome do backup. O registo não depende de tags;
-3. constrói a nova versão e reinicia **só** o `voka-app`;
+3. constrói a nova versão no `voka-builder` limitado e reinicia **só** o `voka-app`;
 4. espera ficar saudável e roda os testes. Se falhar, termina com erro e mostra o comando de rollback.
 
 ## Rollback
@@ -189,7 +197,7 @@ O rollback volta para a imagem exata registada e confere se o contentor ficou ne
 - O backup é automático, todos os dias às `VOKA_BACKUP_TIME` (padrão 03:30, fuso `TZ`), e roda uma vez logo ao ligar.
 - O arquivo é gravado com outro nome, conferido (gzip íntegro e dump completo) e só então renomeado para `deploy/backups/voka-AAAA-MM-DD.sql.gz`. Backups antigos (14 dias) só são apagados depois de um backup bem-sucedido.
 - Se o backup falhar, o arquivo `backups/FALHOU-ultimo-backup.txt` é criado. Nesse caso, o `voka-backup` fica `unhealthy` e o `smoke-test.sh` acusa erro.
-- **Copie `deploy/backups` para fora da VPS** com a rotina de backup externo da TOWER.
+- A cópia para fora da VPS é feita pelo `backup-offsite.sh` (seção abaixo).
 - Os uploads ficam no volume `voka_uploads`. Para copiá-lo:
   `docker run --rm -v voka_uploads:/u -v "$PWD":/out alpine tar czf /out/voka-uploads.tgz -C /u .`
 
@@ -205,12 +213,50 @@ O restore faz o seguinte:
 
 Apague o `voka_antigo_<data>` quando tiver certeza (o script mostra o comando).
 
+## Cópia externa (proposta para o administrador)
+Os backups na própria VPS não protegem contra a perda da VPS. O `backup-offsite.sh` envia `deploy/backups/` para **outra máquina**, por `rsync` sobre SSH. Isso inclui o banco e um pacote diário dos uploads (`backups/uploads/voka-uploads-AAAA-MM-DD.tgz`, 7 dias guardados aqui).
+
+O que o script faz:
+1. confere o último backup do banco (íntegro e com menos de 26 h);
+2. empacota os uploads e confere o pacote;
+3. envia **sem `--delete`**: apagar aqui nunca apaga no destino;
+4. confere o destino com `rsync --checksum --dry-run`. Se houver diferença, o resultado é falha;
+5. marca o resultado: `backups/.copia-externa-ok` ou `backups/FALHOU-copia-externa.txt`. O `smoke-test.sh` acusa erro se falhou ou se tem mais de 26 h.
+
+O script tem trava própria, não mostra senhas e usa `BatchMode` e `StrictHostKeyChecking`: ele nunca pergunta nada nem aceita uma máquina desconhecida.
+
+**Destino sugerido:** a KHUMOTONE, que é outra VPS. O ideal a médio prazo é outro provedor ou outro datacenter.
+
+**Configuração** (feita uma vez, pelo administrador):
+```bash
+# na TOWER: chave só para esta cópia
+sudo ssh-keygen -t ed25519 -N '' -f /root/.ssh/voka_offsite
+# no DESTINO: conta própria, sem sudo, só com a pasta dos backups
+sudo adduser --disabled-password --gecos '' voka-backup
+sudo install -d -o voka-backup -m 700 /srv/voka-backups /home/voka-backup/.ssh
+# cole a chave pública (/root/.ssh/voka_offsite.pub da TOWER) em /home/voka-backup/.ssh/authorized_keys (dono voka-backup, permissão 600)
+# na TOWER: aceitar a chave do destino UMA vez, conferindo a impressão digital
+sudo ssh -i /root/.ssh/voka_offsite voka-backup@DESTINO true
+```
+No `deploy/.env`, preencha `VOKA_OFFSITE_DEST=voka-backup@DESTINO:/srv/voka-backups/` (e `VOKA_OFFSITE_SSH_PORT`, se não for a 22). Teste à mão com `sudo bash deploy/backup-offsite.sh`.
+
+**Agendamento** (só depois de aprovado). Crie `/etc/cron.d/voka-offsite`, uma hora depois do backup diário:
+```
+30 4 * * * root bash /opt/voka/deploy/backup-offsite.sh >> /var/log/voka-offsite.log 2>&1
+```
+Para desfazer: `sudo rm /etc/cron.d/voka-offsite`.
+
+**Restaurar a partir do destino:** copie o arquivo de volta (`scp voka-backup@DESTINO:/srv/voka-backups/voka-AAAA-MM-DD.sql.gz deploy/backups/`) e use o `restore.sh`. Os uploads voltam com:
+`docker exec -i voka-app tar xzf - -C /data/uploads < deploy/backups/uploads/voka-uploads-AAAA-MM-DD.tgz`
+
+**Retenção no destino:** o destino guarda tudo. Se quiser limitar, acrescente lá um cron, por exemplo `find /srv/voka-backups -name '*.gz' -mtime +60 -delete`.
+
 ## Remover
 ```bash
-sudo bash deploy/uninstall.sh      # remove contentores e rede; volumes e backups ficam
+sudo bash deploy/uninstall.sh      # remove contentores, rede e o builder (cache); volumes e backups ficam
 docker volume rm voka_pgdata voka_uploads   # SÓ se quiser apagar os dados (irreversível)
 ```
-Depois, remova o `voka.conf` do nginx (`rm` em `sites-enabled`, `nginx -t`, `reload`) e as regras de firewall das portas 7881 e 7882.
+Depois, remova o `/etc/cron.d/voka-offsite` (se criado), o `voka.conf` do nginx (`rm` em `sites-enabled`, `nginx -t`, `reload`) e as regras de firewall das portas 7881 e 7882.
 
 ## Acompanhamento
 | Para… | Comando (na pasta `deploy`) |

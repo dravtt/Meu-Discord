@@ -39,3 +39,21 @@ wait_healthy() {
     [ "$(docker inspect -f '{{.State.Health.Status}}' voka-app 2>/dev/null)" = healthy ] && return 0; sleep 3
   done; return 1
 }
+# The image is built inside a dedicated BuildKit container ("voka-builder") with its own CPU/RAM ceiling,
+# so the build (npm ci, vite) cannot take resources from the other TOWER services.
+# It is stopped again right after the build; the build cache stays in its own volume.
+BUILDER=voka-builder
+build_app() {
+  local cpus="${VOKA_BUILD_CPUS:-2}" mem="${VOKA_BUILD_MEMORY:-3g}"
+  if ! docker buildx inspect "$BUILDER" >/dev/null 2>&1; then
+    docker buildx create --name "$BUILDER" --driver docker-container \
+      --driver-opt "cpu-period=100000" --driver-opt "cpu-quota=$(awk "BEGIN{print int($cpus*100000)}")" \
+      --driver-opt "memory=$mem" --driver-opt "memory-swap=$mem" \
+      ${VOKA_BUILDKIT_IMAGE:+--driver-opt "image=$VOKA_BUILDKIT_IMAGE"} ${VOKA_BUILDKIT_CONFIG:+--buildkitd-config "$VOKA_BUILDKIT_CONFIG"} >/dev/null
+  fi
+  info "build limitado a $cpus vCPU e $mem de RAM (contentor buildx_buildkit_${BUILDER}0)"
+  local rc=0
+  docker buildx build --builder "$BUILDER" --load -t voka-app:current -f ../Dockerfile .. || rc=$?
+  docker buildx stop "$BUILDER" >/dev/null 2>&1 || true
+  return $rc
+}

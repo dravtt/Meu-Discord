@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Verificação ANTES da instalação. Só LÊ: não cria, não apaga e não altera nada na VPS.
 # Comandos usados: docker ps/network ls/volume ls, nproc, free, df, swapon --show, ss, ufw status,
-# iptables -S (só listagem), getent, curl (IP público, só se VOKA_PUBLIC_IP estiver vazio), openssl s_client.
+# iptables -S (só listagem), getent, docker buildx version/inspect, command -v rsync, curl (IP público, só se VOKA_PUBLIC_IP estiver vazio), openssl s_client.
 #   bash deploy/preflight.sh [dominio]        (com sudo, também lista as regras de firewall)
 set -uo pipefail
 . "$(dirname "$0")/lib.sh"
@@ -19,6 +19,9 @@ step "Docker"
 if command -v docker >/dev/null && docker compose version >/dev/null 2>&1; then
   ok "$(docker --version | cut -d, -f1), $(docker compose version --short 2>/dev/null | sed 's/^/compose /')"
 else fail "Docker ou o plugin 'docker compose' não encontrado"; fi
+if docker buildx version >/dev/null 2>&1; then ok "buildx $(docker buildx version | awk '{print $2}') (build com teto de CPU/RAM)"
+else fail "plugin 'docker buildx' não encontrado (pacote docker-buildx-plugin): o build limitado precisa dele"; fi
+docker buildx inspect voka-builder >/dev/null 2>&1 && info "builder voka-builder já existe (cache do build do Voka)"
 for n in voka-app voka-postgres voka-livekit voka-backup; do
   docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$n" && info "contentor $n já existe (instalação anterior do Voka)"
 done
@@ -82,6 +85,11 @@ if [ -n "$DOMAIN" ]; then
       && ok "certificado válido para $DOMAIN" || warn "certificado não é válido para $DOMAIN (o proxy ainda precisa emitir)"
   else warn "sem certificado em $DOMAIN:443 ainda (normal antes de configurar o proxy)"; fi
 else info "sem domínio informado: rode  bash deploy/preflight.sh vokaapp.com.br  para checar DNS e certificado"; fi
+
+step "Cópia externa dos backups"
+command -v rsync >/dev/null && ok "rsync instalado" || warn "rsync não instalado (necessário para backup-offsite.sh)"
+if [ -n "${VOKA_OFFSITE_DEST:-}" ]; then info "destino: ${VOKA_OFFSITE_DEST%%:*} (conexão testada só pelo backup-offsite.sh)"
+else warn "VOKA_OFFSITE_DEST vazio: os backups ficam só nesta VPS (ver LEIA-ME.md, \"Cópia externa\")"; fi
 
 step "Resumo"
 echo "  $ERRORS erro(s), $WARNINGS aviso(s). Nada foi alterado."

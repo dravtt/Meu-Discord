@@ -12,3 +12,4 @@ deploy/backups
 ccr-ca.crt
 deploy/.ultima-atualizacao*
 deploy/.voka.lock
+deploy/.voka-offsite.lock

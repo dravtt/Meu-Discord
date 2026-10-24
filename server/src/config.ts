@@ -33,7 +33,8 @@ export const config = {
   adminEmails: (process.env.NEXO_ADMIN_EMAILS ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   /** With no admin configured, the first account is admin. Off in production (NODE_ENV=production) unless NEXO_FIRST_USER_ADMIN=on. */
   firstUserAdmin: process.env.NEXO_FIRST_USER_ADMIN ? process.env.NEXO_FIRST_USER_ADMIN === 'on' : process.env.NODE_ENV !== 'production',
-  admins: (process.env.NEXO_ADMINS ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
+  /** Ignored in production: there only verified e-mails (NEXO_ADMIN_EMAILS) count. */
+  admins: process.env.NODE_ENV === 'production' ? [] : (process.env.NEXO_ADMINS ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   mailFrom: process.env.MAIL_FROM ?? 'Voka <no-reply@voka.app>',
   /** Tests turn these off. */
   emailVerification: process.env.NEXO_EMAIL_VERIFY !== 'off',
