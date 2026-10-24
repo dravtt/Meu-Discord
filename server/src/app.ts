@@ -26,6 +26,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 export function createApp() {
   const app = express();
+  app.set('trust proxy', config.trustProxy);
   app.use(cors({ origin: config.webOrigin, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use('/uploads', express.static(path.resolve(config.uploadDir), {

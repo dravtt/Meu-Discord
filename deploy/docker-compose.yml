@@ -1,0 +1,75 @@
+# Voka em produção: app + banco + servidor de voz + HTTPS + backup diário.
+# Tudo é configurado pelo arquivo deploy/.env (o install.sh cria ele).
+name: voka
+
+x-logs: &logs
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  app:
+    build: { context: .., dockerfile: Dockerfile }
+    image: voka-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://voka:${DB_PASSWORD}@postgres:5432/voka
+      WEB_ORIGIN: https://${VOKA_DOMAIN}
+      PUBLIC_URL: https://${VOKA_DOMAIN}
+      LIVEKIT_URL: wss://${VOKA_DOMAIN}
+    volumes: [uploads:/data/uploads]
+    # Also reachable from the VPS itself, for a web server that is already on ports 80/443.
+    ports: ["127.0.0.1:${VOKA_APP_PORT:-3001}:3001"]
+    depends_on: { postgres: { condition: service_healthy } }
+    deploy: { resources: { limits: { cpus: "2", memory: 2g } } }
+    <<: *logs
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment: { POSTGRES_USER: voka, POSTGRES_PASSWORD: "${DB_PASSWORD}", POSTGRES_DB: voka }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "voka"], interval: 5s, retries: 20 }
+    deploy: { resources: { limits: { cpus: "1", memory: 1g } } }
+    <<: *logs
+
+  # Voice/video. Media goes straight to the VPS on TCP 7881 and UDP 7882 (open both in the firewall).
+  livekit:
+    image: livekit/livekit-server:v1.13
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml
+    volumes: ["./livekit.yaml:/etc/livekit.yaml:ro"]
+    ports: ["127.0.0.1:${VOKA_LIVEKIT_PORT:-7880}:7880", "7881:7881", "7882:7882/udp"]
+    deploy: { resources: { limits: { cpus: "1.5", memory: 1g } } }
+    <<: *logs
+
+  # HTTPS with an automatic certificate. Turned off (COMPOSE_PROFILES empty) when the VPS
+  # already has a web server on ports 80/443: then that server forwards to 127.0.0.1:3001 and :7880.
+  caddy:
+    image: caddy:2
+    profiles: [caddy]
+    restart: unless-stopped
+    environment: { VOKA_DOMAIN: "${VOKA_DOMAIN}" }
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro", "caddy_data:/data", "caddy_config:/config"]
+    depends_on: [app, livekit]
+    deploy: { resources: { limits: { cpus: "0.5", memory: 256m } } }
+    <<: *logs
+
+  # One copy of the database per day in deploy/backups, keeping the last 14 days.
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    environment: { PGPASSWORD: "${DB_PASSWORD}" }
+    volumes: ["./backups:/backups"]
+    entrypoint: ["sh", "-c", "while true; do pg_dump -h postgres -U voka voka | gzip > /backups/voka-$$(date +%F).sql.gz && find /backups -name '*.sql.gz' -mtime +14 -delete; sleep 86400; done"]
+    depends_on: { postgres: { condition: service_healthy } }
+    deploy: { resources: { limits: { cpus: "0.5", memory: 256m } } }
+    <<: *logs
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,7 @@
+{$VOKA_DOMAIN} {
+	encode zstd gzip
+	# Voice signalling goes to LiveKit, everything else to the app.
+	@livekit path /rtc /rtc/* /twirp/*
+	reverse_proxy @livekit livekit:7880
+	reverse_proxy app:3001
+}

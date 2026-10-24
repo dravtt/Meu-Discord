@@ -6,3 +6,7 @@ desktop/out
 *.log
 test-uploads
 *.tsbuildinfo
+deploy/.env
+deploy/livekit.yaml
+deploy/backups
+ccr-ca.crt

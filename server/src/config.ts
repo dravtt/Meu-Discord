@@ -18,6 +18,8 @@ export const config = {
   },
   /** Address friends use (e.g. https://voka.app.br). Invite links use it; if empty, the last public address seen (a tunnel). */
   publicUrl: (process.env.PUBLIC_URL ?? '').replace(/\/+$/, ''),
+  /** Proxies whose X-Forwarded-For we believe (Caddy in Docker, cloudflared on this PC), so rate limits see the real visitor IP. */
+  trustProxy: process.env.TRUST_PROXY ?? 'loopback, uniquelocal',
   uploadDir: process.env.UPLOAD_DIR ?? './uploads',
   webDist: process.env.WEB_DIST ?? '../web/dist',
   maxUploadBytes: 80 * 1024 * 1024,
