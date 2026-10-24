@@ -5,25 +5,25 @@ type Detected = { name: string; steamId?: number; catalogId?: string } | null;
 const native = (window as any).nexoNative as undefined | { runningGame?: () => Promise<Detected> };
 
 /**
- * In the desktop app, checks every 20 s which game is open and shows it as "Jogando …".
- * A game picked by hand is left alone; one detected here is cleared when the game closes.
+ * In the desktop app, checks every 20 s which game is open and shows it as "Jogando …" — but only
+ * while the person is Disponível. Each check also sends the game to the server, which adds up the
+ * time played that week. Browsers have no detection, so nothing happens there.
  */
 export function startGameDetection() {
   if (!native?.runningGame) return () => {};
-  let last: string | null = null;
+  let showing = false;
   async function check() {
     const me = useStore.getState().me;
     if (!me) return;
-    const current = useStore.getState().presence[me.id]?.activity ?? null;
-    const game = await native!.runningGame!().catch(() => null);
-    const key = game?.name ?? null;
-    if (key === last) return;
-    last = key;
+    const online = (useStore.getState().presence[me.id]?.status ?? me.status) === 'online';
+    const game = online ? await native!.runningGame!().catch(() => null) : null;
     if (game) {
-      if (current?.source === 'manual' && current.name !== game.name) return;
-      await setActivity({ ...game, source: 'auto' }).catch(() => { last = null; });
-    } else if (current?.source === 'auto') {
-      await setActivity(null).catch(() => { last = 'retry'; });
+      // Each heartbeat refreshes the activity and counts the time played.
+      await setActivity({ ...game, source: 'auto' }).catch(() => {});
+      showing = true;
+    } else if (showing) {
+      await setActivity(null).catch(() => {});
+      showing = false;
     }
   }
   void check();

@@ -120,7 +120,7 @@ export async function broadcastPresence(userId: string) {
   const user = await one<{ status: string; custom_status: string; activity: unknown }>('SELECT status, custom_status, activity FROM users WHERE id = $1', [userId]);
   if (!user) return;
   const status = await visibleStatus(userId, user.status);
-  const payload = { userId, status, customStatus: user.custom_status, activity: status === 'offline' ? null : user.activity ?? null };
+  const payload = { userId, status, customStatus: user.custom_status, activity: status === 'online' ? user.activity ?? null : null };
   io.to(await audienceOf(userId)).emit('presence', payload);
 }
 

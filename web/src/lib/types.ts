@@ -20,6 +20,8 @@ export interface User {
   activity?: Activity | null;
   /** Badges shown on the profile (already without the hidden ones, for other people). */
   badges?: string[];
+  /** Games played the most this week (filled by the desktop app). */
+  topGames?: TopGame[];
   /* Only on your own user: */
   email?: string | null;
   emailVerified?: boolean;
@@ -32,7 +34,8 @@ export interface User {
   isAdmin?: boolean;
 }
 
-export interface Activity { name: string; steamId?: number; catalogId?: string; source: 'manual' | 'auto'; since: string }
+export interface Activity { name: string; steamId?: number; catalogId?: string; source: 'auto'; since: string }
+export interface TopGame { name: string; steamId?: number; catalogId?: string; minutes: number }
 
 /** `cover` is an uploaded image; otherwise the Voka catalog cover (`catalogId`) or Steam's art (`steamId`). */
 export interface Game { name: string; cover: string | null; steamId?: number; catalogId?: string }

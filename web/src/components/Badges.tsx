@@ -1,4 +1,4 @@
-import { BadgeCheck, Castle, Crown, Gamepad2, Rocket, Users, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, Castle, Crown, FlaskConical, Gamepad2, Rocket, Users, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { set, useStore } from '../lib/store';
@@ -7,6 +7,7 @@ import { Dialog } from './Modal';
 
 export const BADGES: Record<string, { label: string; how: string; icon: LucideIcon; color: string }> = {
   founder: { label: 'Fundador do Voka', how: 'A primeira conta criada no Voka.', icon: Crown, color: '#f5b83d' },
+  beta: { label: 'Beta', how: 'Esteve no beta do Voka, no comecinho de tudo.', icon: FlaskConical, color: '#7533fb' },
   pioneer: { label: 'Pioneiro', how: 'Criou a conta em 2026, no comecinho do Voka.', icon: Rocket, color: '#a06bff' },
   verified: { label: 'E-mail verificado', how: 'Confirmou o e-mail da conta.', icon: BadgeCheck, color: '#3ba7ff' },
   server_owner: { label: 'Dono de servidor', how: 'Criou ou é dono de um servidor.', icon: Castle, color: '#3fd28b' },

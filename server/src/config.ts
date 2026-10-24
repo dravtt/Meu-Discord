@@ -23,6 +23,8 @@ export const config = {
   /** e.g. smtps://seuemail%40gmail.com:senha-de-app@smtp.gmail.com:465 */
   smtpUrl: process.env.SMTP_URL ?? '',
   /** Usernames that can see reports and ban accounts. Empty: the first account created is the admin. */
+  /** While the beta is open, new accounts get the Beta badge. Turn off with NEXO_BETA=off when the beta ends. */
+  betaOpen: process.env.NEXO_BETA !== 'off',
   admins: (process.env.NEXO_ADMINS ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   mailFrom: process.env.MAIL_FROM ?? 'Voka <no-reply@voka.app>',
   /** Tests turn these off. */

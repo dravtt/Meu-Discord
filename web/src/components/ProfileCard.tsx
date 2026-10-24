@@ -11,7 +11,7 @@ import { UserMenu, openMenu } from './ContextMenu';
 import { UserSettings } from './modals/UserSettings';
 import { Mural } from './Mural';
 import { BadgeRow } from './Badges';
-import { ActivityCard } from './Activity';
+import { ActivityCard, TopGames } from './Activity';
 
 const longDate = (d: string | undefined) => (d ? new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
@@ -79,6 +79,7 @@ export function ProfileCard({ userId, serverId }: { userId: string; serverId: st
   const isMe = me?.id === userId;
   const name = serverId ? memberName(serverId, shown) : shown.displayName;
   const widgets = shown.widgets ?? [];
+  const topGames = (live?.topGames ?? user.topGames) ?? [];
   const mutualServers = user.mutualServerIds.map((id) => servers[id]).filter(Boolean);
   const mutualFriends = (user.mutualFriendIds ?? []).map((id) => relationships.find((r) => r.user.id === id)?.user).filter((u): u is User => !!u);
 
@@ -134,12 +135,15 @@ export function ProfileCard({ userId, serverId }: { userId: string; serverId: st
           {!isMe && <button className={tab === 'friends' ? 'active' : ''} onClick={() => setTab('friends')}>Amigos em comum ({mutualFriends.length})</button>}
         </nav>
         <div className="profile-side-body">
-          {tab === 'mural' && (widgets.length
-            ? <Mural widgets={widgets} />
-            : <div className="mural-empty">
-              <p className="muted">{isMe ? 'Seu mural está vazio. Mostre seu jogo favorito e os jogos que você curte.' : 'Nada no mural por enquanto.'}</p>
-              {isMe && <button className="btn primary" onClick={() => openModal(<UserSettings />)}>Adicionar widget</button>}
-            </div>)}
+          {tab === 'mural' && <>
+            {topGames.length > 0 && <TopGames games={topGames} />}
+            {widgets.length
+              ? <Mural widgets={widgets} />
+              : topGames.length === 0 && <div className="mural-empty">
+                <p className="muted">{isMe ? 'Seu mural está vazio. Mostre seu jogo favorito, os jogos que você curte, ou jogue no app do computador para aparecerem os mais jogados da semana.' : 'Nada no mural por enquanto.'}</p>
+                {isMe && <button className="btn primary" onClick={() => openModal(<UserSettings />)}>Adicionar widget</button>}
+              </div>}
+          </>}
           {tab === 'servers' && (mutualServers.length
             ? mutualServers.map((s) => (
               <button key={s.id} className="list-row" onClick={() => { set({ view: { kind: 'server', serverId: s.id } }); closeModal(); }}>

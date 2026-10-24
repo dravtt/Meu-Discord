@@ -2,10 +2,8 @@ import { Gamepad2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { set, useStore } from '../lib/store';
-import type { Activity } from '../lib/types';
-import { closeModal, Dialog } from './Modal';
+import type { Activity, TopGame } from '../lib/types';
 import { GameCover } from './Mural';
-import { GameSearch } from './modals/WidgetEditor';
 
 function elapsed(since: string) {
   const min = Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 60000));
@@ -13,6 +11,14 @@ function elapsed(since: string) {
   if (min < 60) return `há ${min} min`;
   const h = Math.floor(min / 60);
   return `há ${h} h${min % 60 ? ` ${min % 60} min` : ''}`;
+}
+
+/** Turns minutes into "2 h 10 min", "45 min", etc. */
+export function playTime(minutes: number) {
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h} h${m ? ` ${m} min` : ''}`;
 }
 
 /** Re-renders every minute so "há 5 min" keeps counting. */
@@ -23,7 +29,7 @@ function useMinuteTick() {
 
 export const activityText = (a: Activity) => `Jogando ${a.name}`;
 
-/** The "Jogando …" card on a profile. */
+/** The "Jogando agora" card on a profile. */
 export function ActivityCard({ activity }: { activity: Activity }) {
   useMinuteTick();
   return (
@@ -42,35 +48,34 @@ export function ActivityLine({ activity }: { activity: Activity }) {
   return <small className="activity-line"><Gamepad2 size={12} /> Jogando <strong>{activity.name}</strong></small>;
 }
 
-export async function setActivity(body: { name: string; steamId?: number; catalogId?: string; source: 'manual' | 'auto' } | null) {
-  const me = useStore.getState().me;
-  if (!me) return;
-  const activity = body ? (await api<{ activity: Activity }>('/users/@me/activity', { method: 'PUT', body })).activity : null;
-  if (!body) await api('/users/@me/activity', { method: 'DELETE' });
-  set((s) => ({ me: s.me && { ...s.me, activity }, presence: { ...s.presence, [me.id]: { ...s.presence[me.id], activity } } }));
+/** The games this person played the most this week. Filled on its own from the desktop app. */
+export function TopGames({ games }: { games: TopGame[] }) {
+  if (!games.length) return null;
+  const max = games[0].minutes || 1;
+  return (
+    <div className="top-games">
+      <h4>Mais jogados da semana</h4>
+      <div className="top-games-list">
+        {games.map((g, i) => (
+          <div key={i} className="top-game">
+            <GameCover game={{ name: g.name, cover: null, steamId: g.steamId, catalogId: g.catalogId }} size="sm" />
+            <div className="top-game-info">
+              <strong>{g.name}</strong>
+              <span className="top-game-bar"><i style={{ width: `${Math.max(8, (g.minutes / max) * 100)}%` }} /></span>
+            </div>
+            <time>{playTime(g.minutes)}</time>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-/** Pick the game you are playing by hand (the desktop app also detects it on its own). */
-export function ActivityDialog() {
-  const current = useStore((s) => (s.me ? s.presence[s.me.id]?.activity : null));
-  const [error, setError] = useState<string | null>(null);
-  const desktop = !!(window as any).nexoNative;
-  return (
-    <Dialog title="O que você está jogando?">
-      <p className="muted small">
-        Seus amigos veem "Jogando…" no seu perfil e na lista de membros. Some sozinho quando você fica offline.
-        {desktop ? ' O app do computador também detecta os jogos abertos sozinho.' : ' No app do computador isso é detectado sozinho.'}
-      </p>
-      {current && (
-        <div className="pe-row" style={{ marginBottom: 12 }}>
-          <ActivityCard activity={current} />
-          <button className="btn small ghost" onClick={() => void setActivity(null).then(closeModal).catch((e) => setError(e.message))}>Parar de mostrar</button>
-        </div>
-      )}
-      <GameSearch placeholder="Buscar jogo (ex.: VALORANT)" onPick={(g) => {
-        void setActivity({ name: g.name, steamId: g.steamId, catalogId: g.catalogId, source: 'manual' }).then(closeModal).catch((e) => setError(e.message));
-      }} />
-      {error && <p className="error">{error}</p>}
-    </Dialog>
-  );
+/** Updates (or clears) the game the desktop app detected. Called only by the detector. */
+export async function setActivity(body: { name: string; steamId?: number; catalogId?: string; source: 'auto' } | null) {
+  const me = useStore.getState().me;
+  if (!me) return;
+  const activity = body ? (await api<{ activity: Activity | null }>('/users/@me/activity', { method: 'PUT', body })).activity : null;
+  if (!body) await api('/users/@me/activity', { method: 'DELETE' });
+  set((s) => ({ me: s.me && { ...s.me, activity }, presence: { ...s.presence, [me.id]: { ...s.presence[me.id], activity } } }));
 }

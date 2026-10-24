@@ -870,3 +870,15 @@ svg { flex-shrink: 0; }
 .keybind-row > span { flex: 1; font-size: 14px; }
 .keybind-row .key-capture { min-width: 170px; font-variant-numeric: tabular-nums; }
 kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--bg-0); border: 1px solid var(--border); font-family: inherit; font-size: 12px; }
+
+/* ---------- most played this week ---------- */
+.me-playing { display: flex; align-items: center; gap: 10px; padding: 8px; font-size: 14px; color: var(--text-2); }
+.top-games { margin-bottom: 14px; }
+.top-games h4 { margin: 0 0 8px; font-size: 12px; color: var(--text-2); text-transform: uppercase; letter-spacing: .02em; }
+.top-games-list { display: flex; flex-direction: column; gap: 8px; }
+.top-game { display: flex; align-items: center; gap: 10px; background: var(--bg-1); border-radius: 10px; padding: 8px 10px; }
+.top-game-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.top-game-info strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-game-bar { height: 6px; border-radius: 3px; background: var(--bg-3); overflow: hidden; }
+.top-game-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #8b4dff, #6a26f0); }
+.top-game time { font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }

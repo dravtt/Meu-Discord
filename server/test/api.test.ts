@@ -505,24 +505,49 @@ describe('account safety', () => {
     await api().post(`/api/invites/${inv.body.code}`).set(auth(ana)).expect(200);
   });
 
-  it('shows the game someone is playing and the badges they keep', async () => {
+  it('shows the game someone is playing (only while online) and the badges they keep', async () => {
+    const { pool } = await import('../src/db.js');
     const watcher = await connect(ana);
     try {
       await api().put(`/api/relationships/${bia.id}`).set(auth(ana));
       await api().put(`/api/relationships/${ana.id}`).set(auth(bia));
       const sock = await connect(bia);
       const ev = nextEvent(watcher, 'presence');
-      await api().put('/api/users/@me/activity').set(auth(bia)).send({ name: 'VALORANT', catalogId: 'valorant', source: 'manual' }).expect(200);
+      // The desktop app reports the game (source auto only).
+      const r = await api().put('/api/users/@me/activity').set(auth(bia)).send({ name: 'VALORANT', catalogId: 'valorant', source: 'auto' }).expect(200);
+      expect(r.body.activity).toMatchObject({ name: 'VALORANT' });
       expect((await ev).activity).toMatchObject({ name: 'VALORANT' });
+      // There is no manual source.
+      await api().put('/api/users/@me/activity').set(auth(bia)).send({ name: 'Jogo', source: 'manual' }).expect(400);
+      // While not Disponível, the activity is not stored or shown.
+      await api().patch('/api/users/@me').set(auth(bia)).send({ status: 'idle' }).expect(200);
+      expect((await api().put('/api/users/@me/activity').set(auth(bia)).send({ name: 'CS2', steamId: 730, source: 'auto' })).body.activity).toBeNull();
+      expect((await api().get(`/api/users/${bia.id}`).set(auth(ana))).body.activity).toBeNull();
+      await api().patch('/api/users/@me').set(auth(bia)).send({ status: 'online' }).expect(200);
       await api().delete('/api/users/@me/activity').set(auth(bia)).expect(204);
       sock.close();
     } finally { watcher.close(); }
     const me = await api().get('/api/users/@me').set(auth(ana)).expect(200);
-    expect(me.body.badges).toContain('founder');
-    await api().put('/api/users/@me/badges').set(auth(ana)).send({ hidden: ['founder'] }).expect(200);
+    expect(me.body.badges).toEqual(expect.arrayContaining(['founder', 'beta', 'pioneer']));
+    await api().put('/api/users/@me/badges').set(auth(ana)).send({ hidden: ['founder', 'beta'] }).expect(200);
     const seen = await api().get(`/api/users/${ana.id}`).set(auth(bia)).expect(200);
     expect(seen.body.badges).not.toContain('founder');
+    expect(seen.body.badges).not.toContain('beta');
     expect(seen.body.badges).toContain('pioneer');
+    await api().put('/api/users/@me/badges').set(auth(ana)).send({ hidden: [] }).expect(200);
+  });
+
+  it('adds up weekly play time and shows the most played games', async () => {
+    const { pool } = await import('../src/db.js');
+    const gamer = await register('gamezao');
+    await pool.query(
+      `INSERT INTO game_play (user_id, week, game_key, name, steam_id, minutes) VALUES
+         ($1, date_trunc('week', now())::date, 's:730', 'Counter-Strike 2', 730, 300),
+         ($1, date_trunc('week', now())::date, 'c:valorant', 'VALORANT', NULL, 120)`, [gamer.id]);
+    const me = await api().get('/api/users/@me').set(auth(gamer)).expect(200);
+    expect(me.body.topGames[0]).toMatchObject({ name: 'Counter-Strike 2', minutes: 300 });
+    const seen = await api().get(`/api/users/${gamer.id}`).set(auth(ana)).expect(200);
+    expect(seen.body.topGames.map((g: any) => g.name)).toEqual(['Counter-Strike 2', 'VALORANT']);
   });
 });
 

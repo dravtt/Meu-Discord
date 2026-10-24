@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { one } from '../db.js';
+import { one, query } from '../db.js';
 import { markVerified, requireAuth, signToken, uid } from '../auth.js';
 import { HttpError, notFound } from '../errors.js';
 import { USER_COLUMNS, publicUser, type UserRow } from '../serializers.js';
@@ -41,8 +41,8 @@ authRouter.post('/auth/register', async (req, res) => {
   await assertDeliverableEmail(body.email);
   const hash = await bcrypt.hash(body.password, 10);
   const user = await one<UserRow>(
-    `INSERT INTO users (username, display_name, password_hash, email, email_verified, birthdate) VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${USER_COLUMNS}`,
-    [body.username, body.displayName ?? body.username, hash, body.email, !config.emailVerification, body.birthdate]);
+    `INSERT INTO users (username, display_name, password_hash, email, email_verified, birthdate, beta) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ${USER_COLUMNS}`,
+    [body.username, body.displayName ?? body.username, hash, body.email, !config.emailVerification, body.birthdate, config.betaOpen]);
   if (config.emailVerification) await sendCode(user!.id, body.email, user!.display_name);
   res.status(201).json({ token: signToken(user!.id), user: await publicUser(user!) });
 });
@@ -147,39 +147,74 @@ authRouter.put('/users/@me/birthdate', requireAuth, async (req, res) => {
   res.json({ birthdate: body.birthdate });
 });
 
-/* ---------- activity ("Jogando …") ---------- */
+/* ---------- activity ("Jogando …") + weekly play time ---------- */
 
+/** How a running game is identified across heartbeats. */
+const gameKey = (g: { name: string; steamId?: number; catalogId?: string }) => g.catalogId ? `c:${g.catalogId}` : g.steamId ? `s:${g.steamId}` : `n:${g.name.toLowerCase()}`;
+/** Two heartbeats farther apart than this don't count as continuous play. */
+const PLAY_GAP_MS = 3 * 60 * 1000;
+
+/**
+ * The desktop app reports the game it detected every few seconds, but only while the person is
+ * Disponível. Each report refreshes "Jogando …" and adds the elapsed time to this week's total.
+ * There is no manual game: `source` must be "auto".
+ */
 authRouter.put('/users/@me/activity', requireAuth, async (req, res) => {
   const body = z.object({
     name: z.string().trim().min(1).max(60),
     steamId: z.number().int().positive().max(1e8).optional(),
     catalogId: z.string().regex(/^[a-z0-9-]{1,40}$/).optional(),
-    source: z.enum(['manual', 'auto']).default('manual'),
+    source: z.literal('auto').default('auto'),
   }).parse(req.body);
   rateLimit(`activity:${uid(req)}`, 30, 60 * 1000);
-  const current = await one<{ activity: { name: string; since: string } | null }>('SELECT activity FROM users WHERE id = $1', [uid(req)]);
-  // Same game as before keeps its start time, so "há 2 h" stays right.
-  const since = current?.activity?.name === body.name ? current.activity.since : new Date().toISOString();
-  const activity = { type: 'playing', ...body, since };
-  await one('UPDATE users SET activity = $2 WHERE id = $1', [uid(req), JSON.stringify(activity)]);
+  const u = await one<{ status: string; activity: { name: string; since: string } | null; last_play_at: Date | null; last_play_key: string | null }>(
+    'SELECT status, activity, last_play_at, last_play_key FROM users WHERE id = $1', [uid(req)]);
+  // Activity only shows in the "Disponível" status.
+  if (u?.status !== 'online') { res.json({ activity: null }); return; }
+  const key = gameKey(body);
+
+  // Add the time since the last heartbeat of the same game to this week's play time.
+  const now = Date.now();
+  if (u.last_play_key === key && u.last_play_at && now - u.last_play_at.getTime() < PLAY_GAP_MS) {
+    const minutes = (now - u.last_play_at.getTime()) / 60000;
+    await one(
+      `INSERT INTO game_play (user_id, week, game_key, name, steam_id, catalog_id, minutes)
+       VALUES ($1, date_trunc('week', now())::date, $2, $3, $4, $5, $6)
+       ON CONFLICT (user_id, week, game_key) DO UPDATE SET minutes = game_play.minutes + $6, name = $3`,
+      [uid(req), key, body.name, body.steamId ?? null, body.catalogId ?? null, minutes]);
+  }
+
+  const since = u.activity?.name === body.name ? u.activity.since : new Date().toISOString();
+  const activity = { type: 'playing', name: body.name, steamId: body.steamId, catalogId: body.catalogId, source: 'auto', since };
+  await one('UPDATE users SET activity = $2, last_play_at = now(), last_play_key = $3 WHERE id = $1', [uid(req), JSON.stringify(activity), key]);
   await broadcastPresence(uid(req));
   res.json({ activity });
 });
 
 authRouter.delete('/users/@me/activity', requireAuth, async (req, res) => {
-  await one('UPDATE users SET activity = NULL WHERE id = $1', [uid(req)]);
+  await one('UPDATE users SET activity = NULL, last_play_key = NULL WHERE id = $1', [uid(req)]);
   await broadcastPresence(uid(req));
   res.status(204).end();
 });
 
+/** The games someone played the most this week, for their profile. */
+export async function topGamesOf(userId: string) {
+  const rows = await query<{ name: string; steam_id: number | null; catalog_id: string | null; minutes: number }>(
+    `SELECT name, steam_id, catalog_id, minutes FROM game_play
+     WHERE user_id = $1 AND week = date_trunc('week', now())::date AND minutes >= 1
+     ORDER BY minutes DESC LIMIT 6`, [userId]);
+  return rows.map((r) => ({ name: r.name, steamId: r.steam_id ?? undefined, catalogId: r.catalog_id ?? undefined, minutes: Math.round(Number(r.minutes)) }));
+}
+
 /* ---------- badges ---------- */
 
 /** Badges are earned automatically; people can hide the ones they don't want to show. */
-export const BADGES = ['founder', 'pioneer', 'verified', 'server_owner', 'popular', 'gamer'] as const;
+export const BADGES = ['founder', 'beta', 'pioneer', 'verified', 'server_owner', 'popular', 'gamer'] as const;
 
 async function badgesOf(userId: string) {
-  const r = await one<{ founder: boolean; pioneer: boolean; verified: boolean; owner: boolean; friends: number; gamer: boolean; hidden: string[] }>(
+  const r = await one<{ founder: boolean; beta: boolean; pioneer: boolean; verified: boolean; owner: boolean; friends: number; gamer: boolean; hidden: string[] }>(
     `SELECT u.id = (SELECT id FROM users ORDER BY created_at LIMIT 1) AS founder,
+            u.beta AS beta,
             u.created_at < '2027-01-01' AS pioneer,
             (u.email IS NOT NULL AND u.email_verified) AS verified,
             EXISTS (SELECT 1 FROM servers s WHERE s.owner_id = u.id) AS owner,
@@ -188,7 +223,7 @@ async function badgesOf(userId: string) {
             u.hidden_badges AS hidden
      FROM users u WHERE u.id = $1`, [userId]);
   if (!r) return { earned: [] as string[], hidden: [] as string[] };
-  const earned = [r.founder && 'founder', r.pioneer && 'pioneer', r.verified && 'verified', r.owner && 'server_owner', r.friends >= 10 && 'popular', r.gamer && 'gamer'].filter(Boolean) as string[];
+  const earned = [r.founder && 'founder', r.beta && 'beta', r.pioneer && 'pioneer', r.verified && 'verified', r.owner && 'server_owner', r.friends >= 10 && 'popular', r.gamer && 'gamer'].filter(Boolean) as string[];
   return { earned, hidden: r.hidden };
 }
 
@@ -219,6 +254,7 @@ async function privateFields(userId: string) {
     badges: b.earned, hiddenBadges: b.hidden,
     mutedUntil: x?.muted_until && x.muted_until > new Date() ? x.muted_until : null,
     isAdmin: await isAdmin(userId),
+    topGames: await topGamesOf(userId),
   };
 }
 
@@ -318,5 +354,6 @@ authRouter.get('/users/:id', requireAuth, async (req, res) => {
   res.json({
     ...(await publicUser(user)), mutualServerIds: mutualServers?.ids ?? [], mutualFriendIds: user.id === uid(req) ? [] : mutualFriends?.ids ?? [],
     note: note?.note ?? '', widgets: extra?.widgets ?? [], badges: b.earned.filter((x) => !b.hidden.includes(x)),
+    topGames: await topGamesOf(user.id),
   });
 });

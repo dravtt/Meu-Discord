@@ -36,8 +36,8 @@ export async function publicUser(u: UserRow) {
     pronouns: u.pronouns ?? '',
     profileColors: u.profile_colors ?? [],
     nameStyle: { font: u.name_font ?? 'default', effect: u.name_effect ?? 'solid', colors: u.name_colors ?? [] },
-    // What they are playing; hidden while offline or invisible.
-    activity: status === 'offline' ? null : u.activity ?? null,
+    // What they are playing; shown only in the "Disponível" status.
+    activity: status === 'online' ? u.activity ?? null : null,
   };
 }
 

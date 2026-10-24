@@ -331,6 +331,13 @@ await step('Perfil com banner, cores e estilo do nome (Bia vê ao vivo)', async 
   await ana.locator('.profile-full .widget-games', { hasText: 'VALORANT' }).waitFor();
   await ana.keyboard.press('Escape');
 });
+async function playGame(page, game) {
+  // Pretends to be the desktop app sending the game it detected.
+  await page.evaluate((g) => fetch('/api/users/@me/activity', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('nexo.token')}` },
+    body: JSON.stringify({ ...g, source: 'auto' }),
+  }).then((r) => r.json()), game);
+}
 await step('Mini-perfil: status num item só, jogo atual, insígnias e contas', async () => {
   await ana.locator('.user-panel .me').click();
   await ana.locator('.me-popout').waitFor();
@@ -340,14 +347,18 @@ await step('Mini-perfil: status num item só, jogo atual, insígnias e contas', 
   await ana.locator('.me-sub button', { hasText: 'Ausente' }).click();
   await ana.locator('.me-popout').waitFor({ state: 'detached' });
   await bia.locator('.member', { hasText: 'Ana' }).locator('.status-dot.idle').waitFor();
-  // Playing a game, picked by hand in the browser.
+  // While Ausente, a detected game must NOT show.
+  await playGame(ana, { name: 'VALORANT', catalogId: 'valorant' });
+  if (await bia.locator('.member', { hasText: 'Ana' }).locator('.activity-line').count()) throw new Error('atividade apareceu fora do modo Disponível');
+  // Back to Disponível: now the game the desktop detected shows up on its own.
   await ana.locator('.user-panel .me').click();
-  await ana.getByRole('button', { name: 'Definir jogo' }).click();
-  await ana.getByLabel('Buscar jogo').fill('valo');
-  await ana.getByRole('option', { name: 'VALORANT' }).click();
+  await ana.locator('.me-box button.has-sub', { hasText: 'Ausente' }).hover();
+  await ana.locator('.me-sub button', { hasText: 'Disponível' }).click();
+  await ana.locator('.me-popout').waitFor({ state: 'detached' });
+  await playGame(ana, { name: 'VALORANT', catalogId: 'valorant' });
   await bia.locator('.member', { hasText: 'Ana' }).locator('.activity-line', { hasText: 'VALORANT' }).waitFor();
   await ana.locator('.user-panel .me small', { hasText: 'Jogando VALORANT' }).waitFor();
-  // Badges, and hiding one.
+  // Badges (Beta is here), and hiding one.
   await ana.locator('.user-panel .me').click();
   await ana.locator('.me-popout .badge-row').waitFor();
   await ana.locator('.me-popout .activity-card', { hasText: 'VALORANT' }).waitFor();
@@ -355,6 +366,7 @@ await step('Mini-perfil: status num item só, jogo atual, insígnias e contas', 
   await ana.locator('.me-box button.has-sub', { hasText: 'Mudar de conta' }).hover();
   await ana.locator('.me-sub', { hasText: 'Adicionar conta' }).waitFor();
   await ana.getByRole('button', { name: 'Insígnias' }).click();
+  await ana.getByLabel('Mostrar Beta').waitFor();
   const pioneer = ana.getByLabel('Mostrar Pioneiro');
   await pioneer.waitFor();
   await ana.screenshot({ path: `${SHOTS}/20-badges.png` });

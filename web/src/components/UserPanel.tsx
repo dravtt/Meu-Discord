@@ -13,7 +13,6 @@ import { openModal } from './Modal';
 import { UserSettings } from './modals/UserSettings';
 import { StyledName } from '../lib/nameStyle';
 import { ProfileCard, ProfileView } from './ProfileCard';
-import { ActivityDialog } from './Activity';
 import { BadgesDialog } from './Badges';
 import { addAccount, savedAccounts, switchTo } from '../lib/accounts';
 
@@ -63,9 +62,7 @@ export function UserPanel() {
               <button className={`has-sub ${sub?.kind === 'status' ? 'open' : ''}`} onMouseEnter={openSub('status')} onClick={openSub('status')}>
                 <StatusIcon status={status} inline /> {STATUS_LABEL[status]} <ChevronRight size={16} className="chev" />
               </button>
-              <button onMouseEnter={() => setSub(null)} onClick={go(() => openModal(<ActivityDialog />))}>
-                <Gamepad2 size={16} /> <span className="ellipsis">{activity ? `Jogando ${activity.name}` : 'Definir jogo'}</span>
-              </button>
+              {activity && <div className="me-playing"><Gamepad2 size={16} /> <span className="ellipsis">Jogando {activity.name}</span></div>}
               <button onMouseEnter={() => setSub(null)} onClick={go(() => openModal(<BadgesDialog />))}><Award size={16} /> Insígnias</button>
               <button onMouseEnter={() => setSub(null)} onClick={go(() => openModal(<ProfileCard userId={me.id} serverId={null} />))}><UserRound size={16} /> Ver perfil completo</button>
             </div>
