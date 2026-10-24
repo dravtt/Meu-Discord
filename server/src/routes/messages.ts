@@ -10,7 +10,7 @@ import { badRequest, forbidden, notFound } from '../errors.js';
 import { has, P, requireChannel, type ChannelRow } from '../permissions.js';
 import { emitToChannel, emitToUser } from '../realtime.js';
 import { dmPayload } from './dms.js';
-import { assertNotRepeating, rateLimit } from '../guard.js';
+import { assertNotMuted, assertNotRepeating, rateLimit, spamGuard } from '../guard.js';
 import { loadMessage, loadMessages, reactionSummary } from '../serializers.js';
 import { config } from '../config.js';
 import { isBlockedBetween } from './relationships.js';
@@ -74,8 +74,11 @@ messagesRouter.post('/channels/:channelId/messages', upload.array('files', 10), 
   const content = body.content.trim();
   if (!content && files.length === 0) throw badRequest('Mensagem vazia');
   // Antispam: at most 8 messages every 5 seconds, and no flooding the same text.
-  rateLimit(`msg:${uid(req)}`, 8, 5_000, 'Devagar! Você está mandando mensagens rápido demais.');
-  if (content) assertNotRepeating(uid(req), content);
+  await assertNotMuted(uid(req));
+  await spamGuard(uid(req), 'message', { serverId: channel.server_id, channelId: channel.id }, () => {
+    rateLimit(`msg:${uid(req)}`, 8, 5_000, 'Devagar! Você está mandando mensagens rápido demais.');
+    if (content) assertNotRepeating(uid(req), content);
+  });
   if (body.replyToId && !(await one('SELECT 1 FROM messages WHERE id = $1 AND channel_id = $2', [body.replyToId, channel.id]))) {
     throw badRequest('Mensagem respondida não encontrada');
   }

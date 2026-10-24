@@ -1,7 +1,8 @@
 import { promises as dns } from 'node:dns';
 import { config } from './config.js';
 import { HttpError } from './errors.js';
-import { one } from './db.js';
+import { one, query } from './db.js';
+import { emitToUser } from './realtime.js';
 
 /* ---------- rate limits (in memory; enough for one server process) ---------- */
 
@@ -38,6 +39,59 @@ export function assertNotRepeating(userId: string, text: string) {
   list.push({ text, at: now });
   recent.set(userId, list.slice(-10));
 }
+
+/* ---------- punishments ---------- */
+
+/** Each mute lasts longer than the last one in the same day: 10 min, 1 h, 6 h, 24 h. */
+const MUTE_STEPS_MS = [10 * 60_000, 60 * 60_000, 6 * 60 * 60_000, 24 * 60 * 60_000];
+/** Strikes in an hour that earn a mute. */
+export const STRIKES_TO_MUTE = 3;
+const lastStrike = new Map<string, number>();
+
+export const minutesLeft = (until: Date) => Math.max(1, Math.ceil((until.getTime() - Date.now()) / 60_000));
+const humanWait = (until: Date) => { const m = minutesLeft(until); return m < 60 ? `${m} min` : `${Math.round(m / 60)} h`; };
+
+/** Muted people cannot send messages, friend requests, new DMs or invites. */
+export async function assertNotMuted(userId: string) {
+  const u = await one<{ muted_until: Date | null }>('SELECT muted_until FROM users WHERE id = $1', [userId]);
+  if (u?.muted_until && u.muted_until > new Date()) {
+    throw new HttpError(403, `Você foi silenciado por spam. Espere mais ${humanWait(u.muted_until)}.`, 'muted');
+  }
+}
+
+/**
+ * Runs the spam checks in `fn`. When one of them stops the user, that counts as a strike and goes to
+ * the spam log; three strikes in an hour mute them.
+ */
+export async function spamGuard(userId: string, kind: string, where: { serverId?: string | null; channelId?: string | null }, fn: () => void) {
+  try {
+    fn();
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 429) await strike(userId, kind, where).catch((e) => console.error('strike failed', e));
+    throw err;
+  }
+}
+
+async function strike(userId: string, kind: string, where: { serverId?: string | null; channelId?: string | null }) {
+  // A burst of blocked requests is one strike, not dozens.
+  const key = `${userId}:${kind}`;
+  if (Date.now() - (lastStrike.get(key) ?? 0) < 15_000) return;
+  lastStrike.set(key, Date.now());
+  await query('INSERT INTO spam_log (user_id, kind, server_id, channel_id) VALUES ($1, $2, $3, $4)', [userId, kind, where.serverId ?? null, where.channelId ?? null]);
+  const r = await one<{ strikes: number; mutes: number }>(
+    `SELECT count(*) FILTER (WHERE kind <> 'mute' AND created_at > now() - interval '1 hour'
+                             AND created_at > coalesce((SELECT max(created_at) FROM spam_log WHERE user_id = $1 AND kind = 'mute'), '-infinity'))::int AS strikes,
+            count(*) FILTER (WHERE kind = 'mute' AND created_at > now() - interval '24 hours')::int AS mutes
+     FROM spam_log WHERE user_id = $1`, [userId]);
+  if (!r || r.strikes < STRIKES_TO_MUTE) return;
+  const until = new Date(Date.now() + MUTE_STEPS_MS[Math.min(r.mutes, MUTE_STEPS_MS.length - 1)]);
+  await query('UPDATE users SET muted_until = $2 WHERE id = $1', [userId, until]);
+  await query("INSERT INTO spam_log (user_id, kind, server_id, channel_id, muted_until) VALUES ($1, 'mute', $2, $3, $4)", [userId, where.serverId ?? null, where.channelId ?? null, until]);
+  emitToUser(userId, 'account:muted', { mutedUntil: until });
+}
+
+/** Lets tests start each case with a clean slate. */
+export const resetStrikes = () => lastStrike.clear();
 
 /* ---------- servers ---------- */
 

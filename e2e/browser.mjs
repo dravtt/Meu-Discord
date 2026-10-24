@@ -364,6 +364,33 @@ await step('Mini-perfil: status num item só, jogo atual, insígnias e contas', 
   await bia.locator('.profile-card .activity-card', { hasText: 'VALORANT' }).first().waitFor();
   await bia.keyboard.press('Escape');
 });
+await step('Atalhos de teclado, denúncia e administração', async () => {
+  await ana.locator('.user-panel').getByTitle('Configurações').click();
+  await ana.getByRole('button', { name: 'Atalhos de teclado', exact: true }).click();
+  await ana.getByLabel('Atalho: Ficar Disponível').click();
+  await ana.keyboard.press('F8');
+  await ana.getByLabel('Atalho: Ficar Disponível').filter({ hasText: 'F8' }).waitFor();
+  await ana.screenshot({ path: `${SHOTS}/21-keybinds.png` });
+  await ana.keyboard.press('Escape');
+  await ana.keyboard.press('F8');
+  await bia.locator('.member', { hasText: 'Ana' }).locator('.status-dot.online').waitFor();
+  // Bia reports one of Ana's messages; Ana (first account, so admin) sees it.
+  await bia.locator('.message', { hasText: 'oi @Bia' }).first().hover().catch(() => {});
+  await bia.locator('.member', { hasText: 'Ana' }).first().click({ button: 'right' });
+  await bia.getByText('Denunciar', { exact: true }).click();
+  await bia.getByText('Spam ou propaganda').click();
+  await bia.getByLabel('Detalhes (opcional)').fill('teste de denúncia');
+  await bia.getByRole('button', { name: 'Enviar denúncia' }).click();
+  await bia.getByText('Denúncia enviada').waitFor();
+  await bia.keyboard.press('Escape');
+  await ana.locator('.user-panel').getByTitle('Configurações').click();
+  await ana.getByRole('button', { name: 'Administração', exact: true }).click();
+  await ana.locator('.report-card', { hasText: 'teste de denúncia' }).waitFor();
+  await ana.screenshot({ path: `${SHOTS}/22-admin.png` });
+  await ana.locator('.report-card', { hasText: 'teste de denúncia' }).getByRole('button', { name: 'Ignorar' }).click();
+  await ana.getByText('Nenhuma denúncia aberta.').waitFor();
+  await ana.keyboard.press('Escape');
+});
 await step('Presença: Bia fica offline para Ana ao sair', async () => {
   await ana.getByRole('button', { name: 'geral', exact: true }).click();
   await bia.context().close();

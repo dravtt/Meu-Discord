@@ -18,6 +18,7 @@ import { joinInviteFromUrl } from './components/modals/ServerModals';
 import { restoreView } from './lib/session';
 import { Logo } from './components/Logo';
 import { startGameDetection } from './lib/gameDetect';
+import { installKeybinds } from './lib/keybinds';
 
 export function App() {
   const [token, setTokenState] = useState(getToken());
@@ -28,6 +29,7 @@ export function App() {
 
   useEffect(() => installPushToTalk(), []);
   useEffect(() => (ready ? startGameDetection() : undefined), [ready]);
+  useEffect(() => (ready ? installKeybinds() : undefined), [ready]);
   useEffect(() => {
     if (!token) return;
     let cancelled = false;

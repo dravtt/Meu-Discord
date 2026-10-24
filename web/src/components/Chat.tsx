@@ -1,4 +1,4 @@
-import { AtSign, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X, UserPlus, UserMinus, Image as ImageIcon } from 'lucide-react';
+import { AtSign, Flag, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X, UserPlus, UserMinus, Image as ImageIcon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore, set, get, dmName, memberName, memberColor, findChannel } from '../lib/store';
 import { api, assetUrl } from '../lib/api';
@@ -17,6 +17,7 @@ import { userMenuProps } from './ContextMenu';
 import { NewGroupModal } from './modals/NewGroupModal';
 import { GroupIcon, GroupSettings } from './modals/GroupSettings';
 import { StyledName } from '../lib/nameStyle';
+import { ReportDialog } from './Moderation';
 
 const EMPTY: Message[] = [];
 
@@ -238,6 +239,7 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
                 const del = () => api(`/channels/${channel.id}/messages/${m.id}`, { method: 'DELETE' });
                 if (e.shiftKey) void del(); else confirmDialog('Apagar mensagem', 'Tem certeza que quer apagar esta mensagem?', 'Apagar', del);
               }}><Trash2 size={18} /></button>}
+              {!isMine && m.author && <button title="Denunciar" className="danger" onClick={() => openModal(<ReportDialog user={m.author} message={{ id: m.id, content: m.content }} />)}><Flag size={18} /></button>}
               {picker && <EmojiPicker onPick={(e) => { react(e); setPicker(false); }} onClose={() => setPicker(false)} />}
             </div>
           )}

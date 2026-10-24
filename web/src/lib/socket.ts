@@ -5,6 +5,7 @@ import type { Channel, Member, Message, Relationship, Role, Server, User, VoiceS
 import { notifyForMessage, notifyIncomingCall } from './notify';
 import { onRingStopped, useCall, useIncomingCall } from './voice';
 import { resumeCall } from './session';
+import { signOutWith } from './accounts';
 import { loadServerSounds, onSoundPlayed, useServerSounds } from './soundboard';
 
 function recipientName(channelId: string, userId: string) {
@@ -94,6 +95,8 @@ export function connectSocket() {
   });
 
   socket.on('user:update', (u: User) => applyUserUpdate(u));
+  socket.on('account:muted', ({ mutedUntil }: { mutedUntil: string | null }) => set((s) => ({ me: s.me && { ...s.me, mutedUntil } })));
+  socket.on('account:banned', ({ reason }: { reason: string }) => signOutWith(`Esta conta foi suspensa${reason ? `: ${reason}` : '.'}`));
 
   socket.on('server:create', (srv: Server) => upsertServer(srv));
   socket.on('server:update', (srv: Partial<Server> & { id: string }) => patchServer(srv.id, (old) => ({ ...old, ...srv })));

@@ -5,7 +5,7 @@ import { requireAuth, uid } from '../auth.js';
 import { badRequest, HttpError, notFound } from '../errors.js';
 import { getPublicUser } from '../serializers.js';
 import { emitToUser } from '../realtime.js';
-import { rateLimit } from '../guard.js';
+import { assertNotMuted, rateLimit, spamGuard } from '../guard.js';
 
 /**
  * Friends, requests and blocks. Each side keeps its own row:
@@ -55,7 +55,10 @@ async function sendOrAccept(me: string, other: string) {
   if (theirs?.type === 'blocked') throw new HttpError(403, 'Não foi possível enviar o pedido');
   const mine = await one<{ type: string }>('SELECT type FROM relationships WHERE user_id = $1 AND target_id = $2', [me, other]);
   if (mine?.type === 'friend') return;
-  if (theirs?.type !== 'pending') rateLimit(`friend:${me}`, 20, 60 * 60_000, 'Você mandou pedidos de amizade demais. Tente de novo daqui a pouco.');
+  if (theirs?.type !== 'pending') {
+    await assertNotMuted(me);
+    await spamGuard(me, 'friend', {}, () => rateLimit(`friend:${me}`, 20, 60 * 60_000, 'Você mandou pedidos de amizade demais. Tente de novo daqui a pouco.'));
+  }
   await transaction(async (db) => {
     if (theirs?.type === 'pending') {
       await db.query(`INSERT INTO relationships (user_id, target_id, type) VALUES ($1, $2, 'friend')

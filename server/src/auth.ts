@@ -18,17 +18,26 @@ export function verifyToken(token: string): string {
   return payload.sub;
 }
 
-/** Whether each user confirmed their e-mail; once true it stays true, so it is cached. */
-const verified = new Map<string, boolean>();
-export const markVerified = (userId: string) => verified.set(userId, true);
+/** Per-user account state, cached: e-mail confirmed and whether the account is suspended. */
+const state = new Map<string, { verified: boolean; banned: string | null }>();
+export const markVerified = (userId: string) => { const s = state.get(userId); if (s) s.verified = true; };
+/** Call after banning or unbanning so the change applies to the very next request. */
+export const forgetAccountState = (userId: string) => state.delete(userId);
 
-async function isVerified(userId: string) {
-  if (!config.emailVerification) return true;
-  const cached = verified.get(userId);
-  if (cached) return true;
-  const row = await one<{ email_verified: boolean }>('SELECT email_verified FROM users WHERE id = $1', [userId]);
-  if (row?.email_verified) verified.set(userId, true);
-  return !!row?.email_verified;
+async function accountState(userId: string) {
+  let s = state.get(userId);
+  if (!s) {
+    const row = await one<{ email_verified: boolean; banned_at: Date | null; banned_reason: string }>(
+      'SELECT email_verified, banned_at, banned_reason FROM users WHERE id = $1', [userId]);
+    s = { verified: !!row?.email_verified, banned: row?.banned_at ? row.banned_reason || '' : null };
+    state.set(userId, s);
+  }
+  return s;
+}
+
+/** Suspended accounts cannot use anything. */
+export async function bannedReason(userId: string) {
+  return (await accountState(userId)).banned;
 }
 
 /** What someone who has not confirmed their e-mail yet may still do. */
@@ -44,8 +53,11 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
     return next(new HttpError(401, 'Não autenticado'));
   }
   (req as AuthedRequest).userId = userId;
-  if (UNVERIFIED_OK.test(req.originalUrl.split('?')[0])) return next();
-  isVerified(userId).then((ok) => next(ok ? undefined : new HttpError(403, 'Confirme seu e-mail para continuar.', 'email_unverified')), next);
+  accountState(userId).then((s) => {
+    if (s.banned !== null) return next(new HttpError(403, `Esta conta foi suspensa${s.banned ? `: ${s.banned}` : '.'}`, 'banned'));
+    if (!config.emailVerification || s.verified || UNVERIFIED_OK.test(req.originalUrl.split('?')[0])) return next();
+    next(new HttpError(403, 'Confirme seu e-mail para continuar.', 'email_unverified'));
+  }, next);
 }
 
 export const uid = (req: Request) => (req as AuthedRequest).userId;

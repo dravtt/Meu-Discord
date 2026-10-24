@@ -1,3 +1,4 @@
+import { ServerSpamLog } from '../Moderation';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
@@ -9,7 +10,7 @@ import { Avatar } from '../Avatar';
 import { closeModal, confirmDialog, openModal } from '../Modal';
 import { inviteLink } from './ServerModals';
 
-type Tab = 'overview' | 'roles' | 'members' | 'invites' | 'bans';
+type Tab = 'overview' | 'roles' | 'members' | 'invites' | 'bans' | 'spam';
 
 export function ServerSettings({ serverId }: { serverId: string }) {
   const server = useStore((s) => s.servers[serverId]);
@@ -23,6 +24,7 @@ export function ServerSettings({ serverId }: { serverId: string }) {
     ['members', 'Membros', has(perms, P.KICK_MEMBERS) || has(perms, P.MANAGE_ROLES) || has(perms, P.BAN_MEMBERS)],
     ['invites', 'Convites', has(perms, P.MANAGE_SERVER)],
     ['bans', 'Banimentos', has(perms, P.BAN_MEMBERS)],
+    ['spam', 'Registro de spam', has(perms, P.MANAGE_SERVER)],
   ];
   const visible = tabs.filter(([, , ok]) => ok);
   const current = visible.some(([t]) => t === tab) ? tab : visible[0]?.[0];
@@ -41,6 +43,7 @@ export function ServerSettings({ serverId }: { serverId: string }) {
       <div className="settings-body">
         <button className="icon-btn close" onClick={closeModal}><X size={20} /></button>
         {current === 'overview' && <Overview server={server} />}
+        {current === 'spam' && <ServerSpamLog serverId={server.id} />}
         {current === 'roles' && <Roles server={server} />}
         {current === 'members' && <Members server={server} />}
         {current === 'invites' && <Invites server={server} />}

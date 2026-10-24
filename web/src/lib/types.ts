@@ -27,6 +27,9 @@ export interface User {
   adult?: boolean;
   usernameChangedAt?: string | null;
   hiddenBadges?: string[];
+  /** Silenced by the antispam (or an admin) until this time. */
+  mutedUntil?: string | null;
+  isAdmin?: boolean;
 }
 
 export interface Activity { name: string; steamId?: number; catalogId?: string; source: 'manual' | 'auto'; since: string }

@@ -20,3 +20,25 @@ export async function sendVerificationCode(to: string, name: string, code: strin
       <p style="color:#999;font-size:13px">Ele vale por 15 minutos. Se não foi você, ignore este e-mail.</p></div>`,
   });
 }
+
+const esc = (s: string) => s.replace(/[<>&"]/g, '');
+
+/** Warns the owner of an account that someone keeps getting the password wrong. */
+export async function sendLoginAlert(to: string, name: string, info: { tries: number; ip: string; when: Date }) {
+  const when = info.when.toLocaleString('pt-BR');
+  if (!transport) {
+    console.log(`\n[Voka] Alerta de segurança para ${to}: ${info.tries} senhas erradas (IP ${info.ip}, ${when})  (configure SMTP_URL para mandar por e-mail)\n`);
+    return;
+  }
+  await transport.sendMail({
+    from: config.mailFrom,
+    to,
+    subject: 'Atividade estranha na sua conta do Voka',
+    text: `Oi, ${name}!\n\nAlguém errou a senha da sua conta ${info.tries} vezes seguidas (IP ${info.ip}, ${when}).\n\nSe foi você, pode ignorar. Se não foi, troque sua senha em Configurações > Minha conta e não passe sua senha para ninguém.`,
+    html: `<div style="font-family:Arial,sans-serif;max-width:440px;margin:auto;padding:24px;background:#0d0b14;color:#eee;border-radius:16px">
+      <h2 style="color:#a78bfa;margin:0 0 12px">Voka</h2><p>Oi, ${esc(name)}!</p>
+      <p style="background:#3a1020;border:1px solid #7f1d1d;padding:12px;border-radius:10px"><b>Detectamos uma anomalia:</b> alguém errou a senha da sua conta <b>${info.tries} vezes</b> seguidas.</p>
+      <p style="color:#bbb;font-size:14px">IP: ${esc(info.ip)}<br>Quando: ${esc(when)}</p>
+      <p>Se foi você, pode ignorar. Se não foi, troque sua senha em <b>Configurações &gt; Minha conta</b> e não passe sua senha para ninguém.</p></div>`,
+  });
+}

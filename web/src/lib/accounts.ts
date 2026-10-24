@@ -24,6 +24,20 @@ export function rememberAccount(me: User) {
 
 export function forgetAccount(id: string) { store(savedAccounts().filter((a) => a.id !== id)); }
 
+/** A suspended account is logged out and removed from this device; the login screen shows why. */
+export function signOutWith(notice: string) {
+  const token = getToken();
+  store(savedAccounts().filter((a) => a.token !== token));
+  try { sessionStorage.setItem('nexo.notice', notice); } catch { /* storage unavailable */ }
+  setToken(null);
+  location.reload();
+}
+
+/** The message left by signOutWith, read once. */
+export function takeNotice(): string | null {
+  try { const n = sessionStorage.getItem('nexo.notice'); sessionStorage.removeItem('nexo.notice'); return n; } catch { return null; }
+}
+
 export function switchTo(account: SavedAccount) {
   setToken(account.token);
   location.hash = '';

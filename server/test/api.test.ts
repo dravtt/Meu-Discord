@@ -525,3 +525,70 @@ describe('account safety', () => {
     expect(seen.body.badges).toContain('pioneer');
   });
 });
+
+describe('moderation', () => {
+  it('mutes after repeated spam and logs it for the server', async () => {
+    const { config } = await import('../src/config.js');
+    const { resetStrikes } = await import('../src/guard.js');
+    const spammer = await register('spam1');
+    const owner = await register('dono1');
+    const s = await api().post('/api/servers').set(auth(owner)).send({ name: 'Anti spam' }).expect(201);
+    const inv = await api().post(`/api/servers/${s.body.id}/invites`).set(auth(owner)).send({}).expect(201);
+    await api().post(`/api/invites/${inv.body.code}`).set(auth(spammer)).expect(200);
+    const channel = s.body.channels.find((c: any) => c.type === 'text').id;
+    config.rateLimits = true;
+    resetStrikes();
+    const { pool } = await import('../src/db.js');
+    try {
+      const send = () => api().post(`/api/channels/${channel}/messages`).set(auth(spammer)).send({ content: 'compre já' });
+      for (let i = 0; i < 3; i++) await send().expect(201);
+      await send().expect(429);
+      // Two more strikes (the 15 s gap between strikes is skipped by clearing it).
+      for (let i = 0; i < 2; i++) { resetStrikes(); await send().expect(429); }
+      const muted = await send().expect(403);
+      expect(muted.body.code).toBe('muted');
+      expect((await api().get('/api/users/@me').set(auth(spammer))).body.mutedUntil).toBeTruthy();
+      const log = await api().get(`/api/servers/${s.body.id}/spam-log`).set(auth(owner)).expect(200);
+      expect(log.body.map((l: any) => l.kind)).toContain('mute');
+      expect(log.body[0].user.id).toBe(spammer.id);
+      await api().get(`/api/servers/${s.body.id}/spam-log`).set(auth(spammer)).expect(403);
+    } finally {
+      config.rateLimits = false;
+      await pool.query('UPDATE users SET muted_until = NULL WHERE id = $1', [spammer.id]);
+    }
+  });
+
+  it('takes reports and lets the admin suspend an account', async () => {
+    const bad = await register('golpista');
+    const sock = await connect(bad);
+    await api().post('/api/reports').set(auth(bia)).send({ targetId: bad.id, reason: 'scam', details: 'pediu pix' }).expect(201);
+    await api().post('/api/reports').set(auth(bia)).send({ targetId: bia.id, reason: 'spam' }).expect(400);
+    // Only the admin (the first account) sees reports.
+    await api().get('/api/admin/reports').set(auth(bia)).expect(403);
+    expect((await api().get('/api/users/@me').set(auth(ana))).body.isAdmin).toBe(true);
+    const list = await api().get('/api/admin/reports').set(auth(ana)).expect(200);
+    const rep = list.body.find((r: any) => r.target.id === bad.id);
+    expect(rep).toMatchObject({ reason: 'scam', details: 'pediu pix', status: 'open' });
+    const kicked = nextEvent(sock, 'disconnect');
+    await api().post(`/api/admin/users/${bad.id}/ban`).set(auth(ana)).send({ reason: 'golpe' }).expect(200);
+    await kicked;
+    expect((await api().get('/api/servers').set(auth(bad)).expect(403)).body.code).toBe('banned');
+    expect((await api().post('/api/auth/login').send({ username: 'golpista', password: 'senha-forte-123' }).expect(403)).body.error).toMatch(/suspensa: golpe/);
+    await api().post(`/api/admin/reports/${rep.id}`).set(auth(ana)).send({ status: 'actioned' }).expect(200);
+    expect((await api().get('/api/admin/reports').set(auth(ana))).body.find((r: any) => r.id === rep.id)).toBeUndefined();
+    await api().post(`/api/admin/users/${ana.id}/ban`).set(auth(ana)).send({}).expect(400);
+    await api().delete(`/api/admin/users/${bad.id}/ban`).set(auth(ana)).expect(200);
+    await api().get('/api/servers').set(auth(bad)).expect(200);
+  });
+
+  it('counts wrong passwords and raises an alert at 10', async () => {
+    const { pool } = await import('../src/db.js');
+    await register('alvo');
+    for (let i = 0; i < 10; i++) await api().post('/api/auth/login').send({ username: 'alvo', password: 'errada-errada' }).expect(401);
+    const { rows } = await pool.query("SELECT failed_logins, login_alert_at FROM users WHERE username = 'alvo'");
+    expect(rows[0].failed_logins).toBe(10);
+    expect(rows[0].login_alert_at).toBeTruthy();
+    await api().post('/api/auth/login').send({ username: 'alvo', password: 'senha-forte-123' }).expect(200);
+    expect((await pool.query("SELECT failed_logins FROM users WHERE username = 'alvo'")).rows[0].failed_logins).toBe(0);
+  });
+});

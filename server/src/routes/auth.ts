@@ -9,7 +9,8 @@ import { broadcastPresence, broadcastUserUpdate } from '../realtime.js';
 import { randomInt } from 'node:crypto';
 import { config } from '../config.js';
 import { ageOn, assertDeliverableEmail, clearLimit, rateLimit } from '../guard.js';
-import { sendVerificationCode } from '../mail.js';
+import { isAdmin } from './moderation.js';
+import { sendLoginAlert, sendVerificationCode } from '../mail.js';
 
 export const authRouter = Router();
 
@@ -51,11 +52,33 @@ authRouter.post('/auth/login', async (req, res) => {
   const key = `login:${req.ip}:${body.username}`;
   rateLimit(key, 10, 15 * 60 * 1000, 'Muitas tentativas de login. Espere 15 minutos e tente de novo.');
   // Log in with the username or the e-mail.
-  const user = await one<UserRow & { password_hash: string }>(`SELECT ${USER_COLUMNS}, password_hash FROM users WHERE username = $1 OR lower(email) = $1`, [body.username]);
-  if (!user || !(await bcrypt.compare(body.password, user.password_hash))) throw new HttpError(401, 'Usuário ou senha incorretos');
+  const user = await one<UserRow & { password_hash: string; banned_at: Date | null; banned_reason: string }>(
+    `SELECT ${USER_COLUMNS}, password_hash, banned_at, banned_reason FROM users WHERE username = $1 OR lower(email) = $1`, [body.username]);
+  if (!user) throw new HttpError(401, 'Usuário ou senha incorretos');
+  if (!(await bcrypt.compare(body.password, user.password_hash))) {
+    await failedLogin(user.id, req.ip ?? '?');
+    throw new HttpError(401, 'Usuário ou senha incorretos');
+  }
+  if (user.banned_at) throw new HttpError(403, `Esta conta foi suspensa${user.banned_reason ? `: ${user.banned_reason}` : '.'}`, 'banned');
   clearLimit(key);
+  await one('UPDATE users SET failed_logins = 0, failed_login_since = NULL WHERE id = $1', [user.id]);
   res.json({ token: signToken(user.id), user: await publicUser(user) });
 });
+
+const LOGIN_ALERT_AFTER = 10;
+
+/** Counts wrong passwords in the last hour; at 10, e-mails the owner (at most once an hour). */
+async function failedLogin(userId: string, ip: string) {
+  const r = await one<{ failed_logins: number; email: string | null; display_name: string; login_alert_at: Date | null }>(
+    `UPDATE users SET
+       failed_logins = CASE WHEN failed_login_since IS NULL OR failed_login_since < now() - interval '1 hour' THEN 1 ELSE failed_logins + 1 END,
+       failed_login_since = CASE WHEN failed_login_since IS NULL OR failed_login_since < now() - interval '1 hour' THEN now() ELSE failed_login_since END
+     WHERE id = $1 RETURNING failed_logins, email, display_name, login_alert_at`, [userId]);
+  if (!r?.email || r.failed_logins < LOGIN_ALERT_AFTER) return;
+  if (r.login_alert_at && r.login_alert_at > new Date(Date.now() - 3600_000)) return;
+  await one('UPDATE users SET login_alert_at = now() WHERE id = $1', [userId]);
+  await sendLoginAlert(r.email, r.display_name, { tries: r.failed_logins, ip, when: new Date() }).catch((e) => console.error('login alert failed', e));
+}
 
 /* ---------- e-mail verification ---------- */
 
@@ -185,8 +208,8 @@ authRouter.get('/users/@me', requireAuth, async (req, res) => {
 
 /** What only you see about your own account. */
 async function privateFields(userId: string) {
-  const x = await one<{ server_order: string[]; widgets: unknown[]; email: string | null; email_verified: boolean; birthdate: Date | null; username_changed_at: Date | null; activity: unknown }>(
-    'SELECT server_order, widgets, email, email_verified, birthdate, username_changed_at, activity FROM users WHERE id = $1', [userId]);
+  const x = await one<{ server_order: string[]; widgets: unknown[]; email: string | null; email_verified: boolean; birthdate: Date | null; username_changed_at: Date | null; activity: unknown; muted_until: Date | null }>(
+    'SELECT server_order, widgets, email, email_verified, birthdate, username_changed_at, activity, muted_until FROM users WHERE id = $1', [userId]);
   const b = await badgesOf(userId);
   return {
     serverOrder: x?.server_order ?? [], widgets: x?.widgets ?? [],
@@ -194,6 +217,8 @@ async function privateFields(userId: string) {
     adult: x?.birthdate ? ageOn(x.birthdate) >= 18 : false,
     usernameChangedAt: x?.username_changed_at ?? null, activity: x?.activity ?? null,
     badges: b.earned, hiddenBadges: b.hidden,
+    mutedUntil: x?.muted_until && x.muted_until > new Date() ? x.muted_until : null,
+    isAdmin: await isAdmin(userId),
   };
 }
 

@@ -2,7 +2,7 @@ import type { Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import { config } from './config.js';
 import { query, one } from './db.js';
-import { verifyToken } from './auth.js';
+import { bannedReason, verifyToken } from './auth.js';
 import { channelPermissions, getChannel, has, overwriteSource, P, type ChannelRow } from './permissions.js';
 
 let io: Server | null = null;
@@ -38,10 +38,10 @@ export function initRealtime(httpServer: HttpServer) {
   io.use((socket, next) => {
     try {
       socket.data.userId = verifyToken(String(socket.handshake.auth?.token ?? ''));
-      next();
     } catch {
-      next(new Error('unauthorized'));
+      return next(new Error('unauthorized'));
     }
+    bannedReason(socket.data.userId).then((b) => next(b === null ? undefined : new Error('banned')), () => next(new Error('unauthorized')));
   });
 
   io.on('connection', (socket) => onConnection(socket).catch((err) => console.error('socket setup failed', err)));
@@ -140,6 +140,12 @@ async function audienceOf(userId: string, withDms = false) {
 export async function broadcastUserUpdate(userId: string, user: unknown) {
   if (!io) return;
   io.to(await audienceOf(userId, true)).emit('user:update', user);
+}
+
+/** Closes every connection of a suspended user; their app goes back to the login screen. */
+export function kickUser(userId: string, reason: string) {
+  io?.to(`user:${userId}`).emit('account:banned', { reason });
+  io?.in(`user:${userId}`).disconnectSockets(true);
 }
 
 export function emitToUser(userId: string, event: string, payload: unknown) {

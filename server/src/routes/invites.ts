@@ -8,7 +8,7 @@ import { P, requireServer } from '../permissions.js';
 import { emitToServer, emitToUser, setServerSubscription } from '../realtime.js';
 import { getPublicUser } from '../serializers.js';
 import { memberPayload, serverSnapshot } from './servers.js';
-import { assertAdult, assertServerSlot, rateLimit } from '../guard.js';
+import { assertAdult, assertNotMuted, assertServerSlot, rateLimit, spamGuard } from '../guard.js';
 
 export const invitesRouter = Router();
 invitesRouter.use(requireAuth);
@@ -37,7 +37,8 @@ invitesRouter.post('/servers/:serverId/invites', async (req, res) => {
     maxUses: z.number().int().min(1).max(1000).nullable().optional(),
     maxAgeSeconds: z.number().int().min(0).max(30 * 86400).default(7 * 86400),
   }).parse(req.body ?? {});
-  rateLimit(`invite:create:${uid(req)}`, 20, 60 * 60_000, 'Você criou convites demais em pouco tempo. Tente de novo mais tarde.');
+  await assertNotMuted(uid(req));
+  await spamGuard(uid(req), 'invite', { serverId }, () => rateLimit(`invite:create:${uid(req)}`, 20, 60 * 60_000, 'Você criou convites demais em pouco tempo. Tente de novo mais tarde.'));
   const inv = await one(
     'INSERT INTO invites (code, server_id, inviter_id, max_uses, expires_at) VALUES ($1, $2, $3, $4, $5) RETURNING *',
     [newCode(), serverId, uid(req), body.maxUses ?? null, body.maxAgeSeconds ? new Date(Date.now() + body.maxAgeSeconds * 1000) : null]);
@@ -63,7 +64,7 @@ invitesRouter.post('/invites/:code', async (req, res) => {
   if (await one('SELECT 1 FROM bans WHERE server_id = $1 AND user_id = $2', [inv.server_id, uid(req)])) throw forbidden('Você foi banido deste servidor');
   const already = await one('SELECT 1 FROM members WHERE server_id = $1 AND user_id = $2', [inv.server_id, uid(req)]);
   if (!already) {
-    rateLimit(`invite:join:${uid(req)}`, 10, 10 * 60_000, 'Você entrou em servidores demais em pouco tempo. Espere alguns minutos.');
+    await spamGuard(uid(req), 'join', {}, () => rateLimit(`invite:join:${uid(req)}`, 10, 10 * 60_000, 'Você entrou em servidores demais em pouco tempo. Espere alguns minutos.'));
     await assertServerSlot(uid(req));
     if ((await one<{ nsfw: boolean }>('SELECT nsfw FROM servers WHERE id = $1', [inv.server_id]))?.nsfw) await assertAdult(uid(req));
     const joined = await one(

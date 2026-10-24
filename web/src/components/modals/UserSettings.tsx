@@ -9,9 +9,11 @@ import { audioConstraints, keyLabel, saveVoiceSettings, useVoiceSettings, type V
 import { savePrefs, THEMES, usePrefs, type ServerNotify } from '../../lib/prefs';
 import { playMessage } from '../../lib/sounds';
 import { ProfileEditor } from './ProfileEditor';
+import { AdminPanel } from '../Moderation';
+import { KeybindsPanel } from './KeybindsPanel';
 import { closeModal } from '../Modal';
 
-type Tab = 'profile' | 'account' | 'appearance' | 'voice' | 'notifications';
+type Tab = 'profile' | 'account' | 'appearance' | 'voice' | 'notifications' | 'keybinds' | 'admin';
 
 export function UserSettings() {
   const me = useStore((s) => s.me)!;
@@ -45,11 +47,16 @@ export function UserSettings() {
         <button className={tab === 'appearance' ? 'active' : ''} onClick={() => { setTab('appearance'); setMsg(null); }}>Aparência</button>
         <button className={tab === 'voice' ? 'active' : ''} onClick={() => { setTab('voice'); setMsg(null); }}>Voz e vídeo</button>
         <button className={tab === 'notifications' ? 'active' : ''} onClick={() => { setTab('notifications'); setMsg(null); }}>Notificações</button>
+        <button className={tab === 'keybinds' ? 'active' : ''} onClick={() => { setTab('keybinds'); setMsg(null); }}>Atalhos de teclado</button>
+        {me.isAdmin && <>
+          <small className="muted nav-group">Voka</small>
+          <button className={tab === 'admin' ? 'active' : ''} onClick={() => { setTab('admin'); setMsg(null); }}>Administração</button>
+        </>}
         <button className="danger" onClick={logout}>Sair</button>
       </nav>
       <div className="settings-body">
         <button className="icon-btn close" onClick={closeModal}><X size={20} /></button>
-        {tab === 'voice' ? <VoiceSettingsPanel /> : tab === 'appearance' ? <AppearancePanel /> : tab === 'notifications' ? <NotificationsPanel /> : tab === 'profile' ? (
+        {tab === 'admin' ? <AdminPanel /> : tab === 'keybinds' ? <KeybindsPanel /> : tab === 'voice' ? <VoiceSettingsPanel /> : tab === 'appearance' ? <AppearancePanel /> : tab === 'notifications' ? <NotificationsPanel /> : tab === 'profile' ? (
           <ProfileEditor />
         ) : (
           <section>

@@ -22,6 +22,8 @@ export const config = {
   maxServersPerUser: Number(process.env.MAX_SERVERS_PER_USER ?? 100),
   /** e.g. smtps://seuemail%40gmail.com:senha-de-app@smtp.gmail.com:465 */
   smtpUrl: process.env.SMTP_URL ?? '',
+  /** Usernames that can see reports and ban accounts. Empty: the first account created is the admin. */
+  admins: (process.env.NEXO_ADMINS ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   mailFrom: process.env.MAIL_FROM ?? 'Voka <no-reply@voka.app>',
   /** Tests turn these off. */
   emailVerification: process.env.NEXO_EMAIL_VERIFY !== 'off',

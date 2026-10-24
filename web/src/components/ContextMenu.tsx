@@ -10,6 +10,7 @@ import { usePrefs, savePrefs, type ServerNotify } from '../lib/prefs';
 import { closeModal, confirmDialog, Dialog, openModal } from './Modal';
 import { ProfileCard } from './ProfileCard';
 import { inviteLink } from './modals/ServerModals';
+import { ReportDialog } from './Moderation';
 
 const useMenu = create<{ x: number; y: number; content: ReactNode } | null>(() => null);
 
@@ -199,6 +200,7 @@ export function UserMenu({ userId, serverId }: { userId: string; serverId?: stri
         {relationship?.type === 'blocked'
           ? <MenuItem label="Desbloquear" onClick={() => void api(`/relationships/${userId}`, { method: 'DELETE' })} />
           : <MenuItem label="Bloquear" danger onClick={() => confirmDialog('Bloquear', `Bloquear ${name}? Vocês deixam de ser amigos e essa pessoa não poderá te mandar mensagens.`, 'Bloquear', async () => { await api(`/relationships/${userId}/block`, { method: 'POST' }); })} />}
+        <MenuItem label="Denunciar" danger onClick={() => openModal(<ReportDialog user={{ id: userId, displayName: name }} />)} />
       </>}
       {canRoles && <><MenuSep /><RolesSub server={server} userId={userId} /></>}
       <MenuSep />

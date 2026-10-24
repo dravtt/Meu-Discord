@@ -8,7 +8,7 @@ import { api } from '../lib/api';
 import { Award, ChevronRight, Gamepad2, Headphones, HeadphoneOff, Mic, MicOff, MonitorOff, MonitorUp, PartyPopper, Pencil, PhoneOff, Plus, Settings, Copy, UserRound, Users, Signal, Video, VideoOff } from 'lucide-react';
 import { leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall } from '../lib/voice';
 import type { Status } from '../lib/types';
-import { Avatar, STATUS_LABEL } from './Avatar';
+import { Avatar, STATUS_LABEL, StatusIcon } from './Avatar';
 import { openModal } from './Modal';
 import { UserSettings } from './modals/UserSettings';
 import { StyledName } from '../lib/nameStyle';
@@ -19,8 +19,8 @@ import { addAccount, savedAccounts, switchTo } from '../lib/accounts';
 
 const STATUS_HINT: Record<string, string> = {
   idle: '',
-  dnd: 'Você não vai receber notificações',
-  invisible: 'Você aparece offline, mas pode usar tudo normalmente',
+  dnd: 'Você não vai receber notificações na área de trabalho',
+  invisible: 'Você vai aparecer offline',
 };
 
 export function UserPanel() {
@@ -61,7 +61,7 @@ export function UserPanel() {
             <div className="me-box">
               <button onMouseEnter={() => setSub(null)} onClick={go(() => openModal(<UserSettings />))}><Pencil size={16} /> Editar perfil</button>
               <button className={`has-sub ${sub?.kind === 'status' ? 'open' : ''}`} onMouseEnter={openSub('status')} onClick={openSub('status')}>
-                <span className={`status-dot inline ${status}`} /> {STATUS_LABEL[status]} <ChevronRight size={16} className="chev" />
+                <StatusIcon status={status} inline /> {STATUS_LABEL[status]} <ChevronRight size={16} className="chev" />
               </button>
               <button onMouseEnter={() => setSub(null)} onClick={go(() => openModal(<ActivityDialog />))}>
                 <Gamepad2 size={16} /> <span className="ellipsis">{activity ? `Jogando ${activity.name}` : 'Definir jogo'}</span>
@@ -81,7 +81,7 @@ export function UserPanel() {
               {sub.kind === 'status'
                 ? (['online', 'idle', 'dnd', 'invisible'] as const).map((st) => (
                   <button key={st} className={status === st ? 'active' : ''} onClick={() => void setStatus(st)}>
-                    <span className={`status-dot inline ${st}`} />
+                    <StatusIcon status={st} inline />
                     <span><strong>{STATUS_LABEL[st]}</strong>{STATUS_HINT[st] && <small>{STATUS_HINT[st]}</small>}</span>
                   </button>))
                 : <>

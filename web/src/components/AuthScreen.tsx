@@ -1,9 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { ApiError, api, setToken } from '../lib/api';
-import { forgetAccount, savedAccounts, switchTo } from '../lib/accounts';
+import { forgetAccount, savedAccounts, switchTo, takeNotice } from '../lib/accounts';
 import type { User } from '../lib/types';
 import { Avatar } from './Avatar';
 import { Logo } from './Logo';
+
+let notice: string | null | undefined;
+/** Why the last session ended (e.g. the account was suspended); read once per page load. */
+const loginNotice = () => (notice === undefined ? (notice = takeNotice()) : notice);
 
 export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -12,7 +16,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
   const [email, setEmail] = useState('');
   const [birthdate, setBirthdate] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(loginNotice);
   const [busy, setBusy] = useState(false);
   const accounts = savedAccounts();
 

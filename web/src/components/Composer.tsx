@@ -1,13 +1,27 @@
 import { FileText, CirclePlus, Smile, X } from 'lucide-react';
-import { useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { useStore, set, get, addMessage, memberName } from '../lib/store';
-import { api } from '../lib/api';
+import { ApiError, api } from '../lib/api';
 import type { Channel, Message, User } from '../lib/types';
 import { emitTyping } from './Chat';
 import { EmojiPicker } from './EmojiPicker';
 import { Avatar } from './Avatar';
 
 const MAX_FILES = 10;
+
+/** When you are muted for spam, the time it ends; null once it is over. */
+function useMutedUntil() {
+  const raw = useStore((s) => s.me?.mutedUntil ?? null);
+  const until = raw ? new Date(raw) : null;
+  const [, rerender] = useState(0);
+  const active = !!until && until > new Date();
+  useEffect(() => {
+    if (!active) return;
+    const t = setTimeout(() => rerender((n) => n + 1), until!.getTime() - Date.now() + 500);
+    return () => clearTimeout(t);
+  }, [active, raw]);
+  return active ? until : null;
+}
 
 export function Composer({ channel, canAttach, placeholder }: { channel: Channel; canAttach: boolean; placeholder: string }) {
   const [text, setText] = useState('');
@@ -22,6 +36,7 @@ export function Composer({ channel, canAttach, placeholder }: { channel: Channel
   const input = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const replyTo = useStore((s) => s.replyTo[channel.id] ?? null);
+  const mutedUntil = useMutedUntil();
 
   const candidates = mentionQuery === null ? [] : mentionCandidates(channel, mentionQuery);
 
@@ -75,6 +90,7 @@ export function Composer({ channel, canAttach, placeholder }: { channel: Channel
       addMessage(saved);
     } catch (err) {
       setError((err as Error).message);
+      if (err instanceof ApiError && err.code === 'muted') void api('/users/@me').then((me) => set({ me }));
       set((s) => ({ messages: { ...s.messages, [channel.id]: (s.messages[channel.id] ?? []).filter((m) => m.id !== optimistic.id) } }));
       setText(content);
     }
@@ -134,11 +150,12 @@ export function Composer({ channel, canAttach, placeholder }: { channel: Channel
           ))}
         </div>
       )}
-      {error && <div className="composer-error">{error}</div>}
+      {mutedUntil && <div className="muted-banner">Você foi silenciado pelo antispam e volta a poder mandar mensagens às <strong>{mutedUntil.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</strong>.</div>}
+      {error && !mutedUntil && <div className="composer-error">{error}</div>}
       <div className="composer">
         {canAttach && <button className="icon-btn" title="Enviar arquivo" onClick={() => fileInput.current?.click()}><CirclePlus size={22} /></button>}
         <input ref={fileInput} type="file" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }} />
-        <textarea ref={input} rows={1} value={text} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown} onPaste={onPaste} maxLength={4000} />
+        <textarea ref={input} rows={1} value={text} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown} onPaste={onPaste} maxLength={4000} disabled={!!mutedUntil} />
         <div className="picker-anchor">
           <button className="icon-btn" title="Emoji" onClick={() => setPicker(!picker)}><Smile size={22} /></button>
           {picker && <EmojiPicker onPick={(e) => { setText((t) => t + e); input.current?.focus(); }} onClose={() => setPicker(false)} up />}

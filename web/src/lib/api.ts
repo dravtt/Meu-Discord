@@ -1,3 +1,5 @@
+import { signOutWith } from './accounts';
+
 const TOKEN_KEY = 'nexo.token';
 
 /** API origin. Empty in the browser (same origin / Vite proxy); set by the desktop app. */
@@ -16,7 +18,7 @@ export function setToken(token: string | null) {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code?: string) { super(message); }
 }
 
 export async function api<T = any>(path: string, options: { method?: string; body?: unknown; form?: FormData } = {}): Promise<T> {
@@ -31,7 +33,8 @@ export async function api<T = any>(path: string, options: { method?: string; bod
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401 && token) { setToken(null); location.reload(); }
-    throw new ApiError(res.status, data.error ?? 'Erro inesperado');
+    if (res.status === 403 && data.code === 'banned' && token) signOutWith(data.error);
+    throw new ApiError(res.status, data.error ?? 'Erro inesperado', data.code);
   }
   return data as T;
 }

@@ -208,12 +208,12 @@ svg { flex-shrink: 0; }
 .avatar { position: relative; display: inline-block; flex-shrink: 0; }
 .avatar img, .avatar-fallback { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: grid; place-items: center; color: white; font-weight: 700; }
 .avatar-fallback.tiny { width: 24px; height: 24px; background: var(--bg-4); font-size: 13px; display: inline-grid; }
-.status-dot { position: absolute; right: -2px; bottom: -2px; border-radius: 50%; border: 3px solid var(--bg-1); background: var(--text-3); }
-.status-dot.inline { position: static; display: inline-block; width: 10px; height: 10px; border: 0; }
-.status-dot.online { background: var(--ok); }
-.status-dot.idle { background: var(--warn); }
-.status-dot.dnd { background: var(--danger); }
-.status-dot.offline, .status-dot.invisible { background: #6b7280; }
+.status-dot { position: absolute; right: -2px; bottom: -2px; border-radius: 50%; border: 3px solid var(--bg-1); background: var(--bg-1); color: #80848e; box-sizing: content-box; display: grid; }
+.status-dot svg { display: block; }
+.status-dot.inline { position: static; display: inline-grid; width: 12px; height: 12px; border: 0; background: none; flex-shrink: 0; }
+.status-dot.online { color: #23c55e; }
+.status-dot.idle { color: #f5b82e; }
+.status-dot.dnd { color: #f04446; }
 
 /* Chat */
 .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -843,3 +843,30 @@ svg { flex-shrink: 0; }
 .nsfw-warning strong { color: var(--danger-text); }
 .nsfw-warning p { margin: 4px 0 10px; font-size: 14px; }
 .me-sub .status-dot, .me-box .status-dot { flex-shrink: 0; }
+
+/* ---------- reports and moderation ---------- */
+.report-quote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--danger); background: var(--bg-0); border-radius: 0 8px 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; max-height: 120px; overflow: auto; }
+.report-reasons { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.report-reason { display: flex !important; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: var(--bg-1); cursor: pointer; text-transform: none !important; font-size: 14px !important; color: var(--text) !important; font-weight: 500 !important; letter-spacing: 0 !important; }
+.report-reason input { width: auto; accent-color: var(--danger); }
+.report-reason.active { outline: 2px solid var(--danger); }
+.mod-list { display: flex; flex-direction: column; gap: 8px; }
+.mod-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bg-1); border-radius: 8px; }
+.mod-row.mute { border-left: 3px solid var(--warn); }
+.mod-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+.mod-main small { width: 100%; color: var(--text-3); }
+.report-card { background: var(--bg-1); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.report-card .mod-row { padding: 0; background: none; }
+.report-card .report-quote { margin: 0; }
+.report-card p { margin: 0; }
+.tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--warn); color: #000; }
+.tag.danger { background: var(--danger); color: #fff; }
+.muted-banner { margin: 0 16px 8px; padding: 10px 14px; border-radius: 8px; background: rgba(245, 158, 11, .12); border: 1px solid rgba(245, 158, 11, .4); font-size: 14px; }
+.check-row { text-transform: none !important; font-size: 14px !important; font-weight: 400 !important; color: var(--text) !important; letter-spacing: 0 !important; margin-bottom: 10px; }
+
+/* ---------- keyboard shortcuts ---------- */
+.keybind-group { margin-bottom: 14px; }
+.keybind-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; background: var(--bg-1); margin-bottom: 6px; }
+.keybind-row > span { flex: 1; font-size: 14px; }
+.keybind-row .key-capture { min-width: 170px; font-variant-numeric: tabular-nums; }
+kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--bg-0); border: 1px solid var(--border); font-family: inherit; font-size: 12px; }

@@ -6,7 +6,7 @@ import { badRequest, forbidden, notFound } from '../errors.js';
 import { channelPermissions, DEFAULT_EVERYONE_PERMISSIONS, has, P, requireServer, topRolePosition, type ChannelRow } from '../permissions.js';
 import { emitToServer, emitToUser, setServerSubscription, voiceStatesFor } from '../realtime.js';
 import { getPublicUser, serializeChannel, serializeRole } from '../serializers.js';
-import { assertServerSlot, rateLimit } from '../guard.js';
+import { assertServerSlot, rateLimit, spamGuard } from '../guard.js';
 
 export const serversRouter = Router();
 serversRouter.use(requireAuth);
@@ -59,7 +59,7 @@ serversRouter.get('/servers', async (req, res) => {
 
 serversRouter.post('/servers', async (req, res) => {
   const body = z.object({ name: z.string().trim().min(2).max(100), iconUrl: z.string().max(500).nullable().optional() }).parse(req.body);
-  rateLimit(`server:create:${uid(req)}`, 10, 60 * 60_000, 'Você criou servidores demais em pouco tempo. Tente de novo mais tarde.');
+  await spamGuard(uid(req), 'server', {}, () => rateLimit(`server:create:${uid(req)}`, 10, 60 * 60_000, 'Você criou servidores demais em pouco tempo. Tente de novo mais tarde.'));
   await assertServerSlot(uid(req));
   const serverId = await transaction(async (db) => {
     const s = (await db.query('INSERT INTO servers (name, icon_url, owner_id) VALUES ($1, $2, $3) RETURNING id', [body.name, body.iconUrl ?? null, uid(req)])).rows[0];
