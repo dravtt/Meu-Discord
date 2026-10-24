@@ -76,6 +76,66 @@ export function UserSettings() {
 
 const COOLDOWN_DAYS = 14;
 
+/** Shows the e-mail, and lets you add one (old accounts) or change it, confirming with a code. */
+function EmailSection({ onMsg }: { onMsg: (m: { ok: boolean; text: string } | null) => void }) {
+  const me = useStore((s) => s.me)!;
+  const [editing, setEditing] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const pending = me.pendingEmail ?? null;
+
+  async function run(fn: () => Promise<void>) {
+    onMsg(null);
+    setBusy(true);
+    try { await fn(); } catch (e) { onMsg({ ok: false, text: (e as Error).message }); } finally { setBusy(false); }
+  }
+  const refresh = async () => set({ me: await api('/users/@me') });
+
+  return (
+    <div className="account-row email-row">
+      <span className="muted small">E-mail</span>
+      <div className="email-line">
+        <strong>{me.email ?? 'Nenhum e-mail ainda'}</strong>
+        {me.email && me.emailVerified && <span className="tag ok">Verificado</span>}
+        {!pending && !editing && <button className="btn small" onClick={() => setEditing(true)}>{me.email ? 'Trocar e-mail' : 'Adicionar e-mail'}</button>}
+      </div>
+      {!me.email && !pending && !editing && <p className="muted small">Sua conta é de antes do cadastro com e-mail. Adicione um para receber alertas de segurança e ganhar a insígnia de e-mail verificado.</p>}
+      {editing && !pending && (
+        <div className="email-form">
+          <label>Novo e-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus /></label>
+          <label>Sua senha<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+          <div className="pe-row">
+            <button className="btn primary" disabled={busy || !email || !password} onClick={() => void run(async () => {
+              await api('/users/@me/email/change', { body: { email, password } });
+              await refresh();
+              setEditing(false); setPassword('');
+              onMsg({ ok: true, text: `Mandamos um código para ${email}.` });
+            })}>Enviar código</button>
+            <button className="btn ghost" onClick={() => setEditing(false)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+      {pending && (
+        <div className="email-form">
+          <p className="small">Digite o código de 6 números que mandamos para <strong>{pending}</strong>.</p>
+          <label>Código<input className="code-input" value={code} inputMode="numeric" maxLength={6} placeholder="000000" onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} /></label>
+          <div className="pe-row">
+            <button className="btn primary" disabled={busy || code.length !== 6} onClick={() => void run(async () => {
+              await api('/users/@me/email/change/confirm', { body: { code } });
+              await refresh();
+              setCode('');
+              onMsg({ ok: true, text: 'E-mail confirmado!' });
+            })}>Confirmar</button>
+            <button className="btn ghost" onClick={() => void run(async () => { await api('/users/@me/email/change', { method: 'DELETE' }); await refresh(); })}>Cancelar troca</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** E-mail, username (changeable every two weeks) and birth date. */
 function AccountPanel({ onMsg }: { onMsg: (m: { ok: boolean; text: string } | null) => void }) {
   const me = useStore((s) => s.me)!;
@@ -93,10 +153,7 @@ function AccountPanel({ onMsg }: { onMsg: (m: { ok: boolean; text: string } | nu
 
   return (
     <div className="account-panel">
-      <div className="account-row">
-        <span className="muted small">E-mail</span>
-        <strong>{me.email ?? 'Nenhum e-mail (conta antiga)'}</strong>
-      </div>
+      <EmailSection onMsg={onMsg} />
       <h3>Nome de usuário</h3>
       <p className="muted small">
         Atual: <strong>{me.username}</strong>. Dá para trocar a cada {COOLDOWN_DAYS} dias, e um nome que já é de outra pessoa fica indisponível.

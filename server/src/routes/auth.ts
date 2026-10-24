@@ -122,6 +122,46 @@ authRouter.put('/users/@me/email', requireAuth, async (req, res) => {
   res.json({ email: body.email });
 });
 
+/**
+ * Add an e-mail (accounts made before e-mails existed) or change a confirmed one. The new address
+ * only replaces the old one after its code is typed in, so a typo never locks anyone out.
+ */
+authRouter.post('/users/@me/email/change', requireAuth, async (req, res) => {
+  const body = z.object({ email, password: z.string() }).parse(req.body);
+  const u = await one<{ password_hash: string; display_name: string; email: string | null }>('SELECT password_hash, display_name, email FROM users WHERE id = $1', [uid(req)]);
+  if (!u || !(await bcrypt.compare(body.password, u.password_hash))) throw new HttpError(400, 'Senha incorreta');
+  if (u.email?.toLowerCase() === body.email) throw new HttpError(400, 'Esse já é o seu e-mail.');
+  rateLimit(`email-change:${uid(req)}`, 5, 60 * 60 * 1000, 'Você tentou trocar o e-mail muitas vezes. Tente daqui a uma hora.');
+  if (await one('SELECT 1 FROM users WHERE lower(email) = $1 AND id <> $2', [body.email, uid(req)])) throw new HttpError(409, 'Já existe uma conta com esse e-mail');
+  await assertDeliverableEmail(body.email);
+  await one('UPDATE users SET pending_email = $2 WHERE id = $1', [uid(req), body.email]);
+  await sendCode(uid(req), body.email, u.display_name);
+  res.json({ pendingEmail: body.email });
+});
+
+authRouter.post('/users/@me/email/change/confirm', requireAuth, async (req, res) => {
+  const { code } = z.object({ code: z.string().trim().regex(/^\d{6}$/, 'O código tem 6 números') }).parse(req.body);
+  const u = await one<{ pending_email: string | null; email_code: string | null; email_code_expires: Date | null; email_code_tries: number }>(
+    'SELECT pending_email, email_code, email_code_expires, email_code_tries FROM users WHERE id = $1', [uid(req)]);
+  if (!u?.pending_email) throw new HttpError(400, 'Nenhuma troca de e-mail em andamento.');
+  if (!u.email_code || !u.email_code_expires || u.email_code_expires < new Date()) throw new HttpError(400, 'O código expirou. Peça um novo.');
+  if (u.email_code_tries >= 5) throw new HttpError(429, 'Muitas tentativas. Peça um código novo.');
+  if (u.email_code !== code) {
+    await one('UPDATE users SET email_code_tries = email_code_tries + 1 WHERE id = $1', [uid(req)]);
+    throw new HttpError(400, 'Código incorreto');
+  }
+  if (await one('SELECT 1 FROM users WHERE lower(email) = $1 AND id <> $2', [u.pending_email, uid(req)])) throw new HttpError(409, 'Já existe uma conta com esse e-mail');
+  await one(`UPDATE users SET email = pending_email, pending_email = NULL, email_verified = true, email_code = NULL, email_code_expires = NULL
+             WHERE id = $1`, [uid(req)]);
+  markVerified(uid(req));
+  res.json({ email: u.pending_email });
+});
+
+authRouter.delete('/users/@me/email/change', requireAuth, async (req, res) => {
+  await one('UPDATE users SET pending_email = NULL WHERE id = $1', [uid(req)]);
+  res.status(204).end();
+});
+
 /* ---------- username, birth date ---------- */
 
 authRouter.put('/users/@me/username', requireAuth, async (req, res) => {
@@ -243,12 +283,12 @@ authRouter.get('/users/@me', requireAuth, async (req, res) => {
 
 /** What only you see about your own account. */
 async function privateFields(userId: string) {
-  const x = await one<{ server_order: string[]; widgets: unknown[]; email: string | null; email_verified: boolean; birthdate: Date | null; username_changed_at: Date | null; activity: unknown; muted_until: Date | null }>(
-    'SELECT server_order, widgets, email, email_verified, birthdate, username_changed_at, activity, muted_until FROM users WHERE id = $1', [userId]);
+  const x = await one<{ pending_email: string | null; server_order: string[]; widgets: unknown[]; email: string | null; email_verified: boolean; birthdate: Date | null; username_changed_at: Date | null; activity: unknown; muted_until: Date | null }>(
+    'SELECT pending_email, server_order, widgets, email, email_verified, birthdate, username_changed_at, activity, muted_until FROM users WHERE id = $1', [userId]);
   const b = await badgesOf(userId);
   return {
     serverOrder: x?.server_order ?? [], widgets: x?.widgets ?? [],
-    email: x?.email ?? null, emailVerified: x?.email_verified ?? true, hasBirthdate: !!x?.birthdate,
+    email: x?.email ?? null, pendingEmail: x?.pending_email ?? null, emailVerified: x?.email_verified ?? true, hasBirthdate: !!x?.birthdate,
     adult: x?.birthdate ? ageOn(x.birthdate) >= 18 : false,
     usernameChangedAt: x?.username_changed_at ?? null, activity: x?.activity ?? null,
     badges: b.earned, hiddenBadges: b.hidden,

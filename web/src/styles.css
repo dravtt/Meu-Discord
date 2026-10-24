@@ -889,3 +889,8 @@ kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; background: v
 .tab-live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #23c55e; margin-left: 6px; vertical-align: middle; box-shadow: 0 0 0 3px rgba(35, 197, 94, .25); }
 .detect-note { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; background: rgba(35, 197, 94, .1); border: 1px solid rgba(35, 197, 94, .3); color: var(--text-2); }
 .detect-note.warn { background: rgba(245, 158, 11, .1); border-color: rgba(245, 158, 11, .35); }
+.email-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.email-line .btn { margin-left: auto; }
+.email-row p { margin: 6px 0 0; }
+.email-form { margin-top: 10px; }
+.tag.ok { background: #23c55e; color: #04210f; }

@@ -24,6 +24,8 @@ export interface User {
   topGames?: TopGame[];
   /* Only on your own user: */
   email?: string | null;
+  /** New e-mail waiting for its confirmation code. */
+  pendingEmail?: string | null;
   emailVerified?: boolean;
   hasBirthdate?: boolean;
   adult?: boolean;

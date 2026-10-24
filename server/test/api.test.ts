@@ -617,3 +617,22 @@ describe('moderation', () => {
     expect((await pool.query("SELECT failed_logins FROM users WHERE username = 'alvo'")).rows[0].failed_logins).toBe(0);
   });
 });
+
+describe('adding an e-mail to an old account', () => {
+  it('adds the e-mail only after the code is confirmed', async () => {
+    const { pool } = await import('../src/db.js');
+    const old = await register('antigo');
+    await pool.query("UPDATE users SET email = NULL WHERE id = $1", [old.id]);
+    await api().post('/api/users/@me/email/change').set(auth(old)).send({ email: 'antigo@gmail.com', password: 'errada-errada' }).expect(400);
+    await api().post('/api/users/@me/email/change').set(auth(old)).send({ email: 'bia@teste.com.br', password: 'senha-forte-123' }).expect(409);
+    await api().post('/api/users/@me/email/change').set(auth(old)).send({ email: 'antigo@gmail.com', password: 'senha-forte-123' }).expect(200);
+    let me = await api().get('/api/users/@me').set(auth(old)).expect(200);
+    expect(me.body).toMatchObject({ email: null, pendingEmail: 'antigo@gmail.com' });
+    await api().post('/api/users/@me/email/change/confirm').set(auth(old)).send({ code: '000000' }).expect(400);
+    const { rows } = await pool.query('SELECT email_code FROM users WHERE id = $1', [old.id]);
+    await api().post('/api/users/@me/email/change/confirm').set(auth(old)).send({ code: rows[0].email_code }).expect(200);
+    me = await api().get('/api/users/@me').set(auth(old)).expect(200);
+    expect(me.body).toMatchObject({ email: 'antigo@gmail.com', pendingEmail: null, emailVerified: true });
+    expect(me.body.badges).toContain('verified');
+  });
+});
