@@ -1,0 +1,4 @@
+# Scripts and config that run on Linux (VPS/Docker) must keep LF line endings, even on Windows.
+*.sh text eol=lf
+Dockerfile text eol=lf
+deploy/** text eol=lf
