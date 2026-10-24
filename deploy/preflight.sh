@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
-# Verificação ANTES da instalação. Só lê informações: não altera nada na VPS.
-#   sudo bash deploy/preflight.sh [dominio]
+# Verificação ANTES da instalação. Só LÊ: não cria, não apaga e não altera nada na VPS.
+# Comandos usados: docker ps/network ls/volume ls, nproc, free, df, swapon --show, ss, ufw status,
+# iptables -S (só listagem), getent, curl (IP público, só se VOKA_PUBLIC_IP estiver vazio), openssl s_client.
+#   bash deploy/preflight.sh [dominio]        (com sudo, também lista as regras de firewall)
 set -uo pipefail
 . "$(dirname "$0")/lib.sh"
 load_env
 DOMAIN="${1:-${VOKA_DOMAIN:-}}"
 APP_PORT="${VOKA_APP_PORT:-3001}"; LK_PORT="${VOKA_LIVEKIT_PORT:-7880}"
 TCP_PORT="${VOKA_RTC_TCP_PORT:-7881}"; UDP_PORT="${VOKA_RTC_UDP_PORT:-7882}"
+
+step "Arquivos do kit"
+crlf=$(grep -l $'\r' ../Dockerfile ./*.sh ./*.yml ./*.template ./.env.example ./proxy-examples/* 2>/dev/null)
+[ -z "$crlf" ] && ok "sem quebras de linha do Windows (CRLF)" || fail "arquivos com CRLF (vieram do Windows): $(echo $crlf). Gere o kit com 'git archive' (LEIA-ME.md, passo 0)"
+for f in ./*.sh; do bash -n "$f" 2>/dev/null || fail "erro de sintaxe em $f"; done; ok "sintaxe dos scripts (bash -n)"
 
 step "Docker"
 if command -v docker >/dev/null && docker compose version >/dev/null 2>&1; then
@@ -40,11 +47,12 @@ for p in 80 443; do
   if port_busy_tcp "$p"; then info "TCP $p: '$(who_port "$p")'"; else warn "nada escutando na porta $p"; fi
 done
 if who_port 443 | grep -q docker-proxy; then
-  info "o proxy roda num contentor Docker: ele não alcança 127.0.0.1 da VPS."
-  info "   Use os nomes voka-app:3001 / voka-livekit:7880 e ligue o proxy à rede voka_net (ver LEIA-ME.md)."
+  warn "a porta 443 é de um contentor Docker, mas este kit supõe o nginx instalado na VPS (fora do Docker)."
+  info "   Não instale: os exemplos de proxy-examples/ apontam para 127.0.0.1. Reveja o plano do proxy antes."
 fi
 
 step "Firewall do servidor"
+[ "$(id -u)" = 0 ] || info "sem sudo: as regras de firewall não podem ser listadas (rode com sudo para vê-las; continua só leitura)"
 if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
   for rule in "$TCP_PORT/tcp" "$UDP_PORT/udp"; do
     ufw status | grep -q "^$rule .*ALLOW" && ok "ufw libera $rule" || warn "ufw ativo e sem regra para $rule"

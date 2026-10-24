@@ -22,10 +22,11 @@ volumes:
 services:
   app:
     build: { context: .., dockerfile: Dockerfile }
-    image: voka-app:${VOKA_IMAGE_TAG:-current}
+    # Fixed tag: update.sh/rollback.sh move it between versions by image ID.
+    image: voka-app:current
     container_name: voka-app
     restart: unless-stopped
-    env_file: .env
+    env_file: ${VOKA_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgres://voka:${DB_PASSWORD}@voka-postgres:5432/voka
       WEB_ORIGIN: https://${VOKA_DOMAIN}
@@ -71,18 +72,25 @@ services:
       # Same number outside and inside: LiveKit announces these ports to the callers.
       - "${VOKA_RTC_TCP_PORT:-7881}:${VOKA_RTC_TCP_PORT:-7881}/tcp"
       - "${VOKA_RTC_UDP_PORT:-7882}:${VOKA_RTC_UDP_PORT:-7882}/udp"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:7880/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     deploy: { resources: { limits: { cpus: "0.6", memory: 1g } } }
     <<: *logs
 
-  # One copy of the database per day in deploy/backups, keeping the last 14 days.
+  # One verified copy of the database per day in deploy/backups, keeping 14 days (see backup-loop.sh).
   backup:
     image: postgres:16
     container_name: voka-backup
     restart: unless-stopped
-    environment: { PGPASSWORD: "${DB_PASSWORD}" }
+    environment: { PGPASSWORD: "${DB_PASSWORD}", VOKA_BACKUP_TIME: "${VOKA_BACKUP_TIME:-03:30}", TZ: "${TZ:-America/Sao_Paulo}" }
     networks: [voka_net]
-    volumes: ["./backups:/backups"]
-    entrypoint: ["sh", "-c", "while true; do f=/backups/voka-$$(date +%F).sql.gz; pg_dump -h voka-postgres -U voka voka | gzip > $$f.tmp && mv $$f.tmp $$f && find /backups -name 'voka-*.sql.gz' -mtime +14 -delete; sleep 86400; done"]
+    volumes: ["./backups:/backups", "./backup-loop.sh:/voka/backup-loop.sh:ro", "./backup-lib.sh:/voka/backup-lib.sh:ro"]
+    entrypoint: ["bash", "/voka/backup-loop.sh"]
+    # Healthy while the last scheduled backup did not fail.
+    healthcheck: { test: ["CMD", "test", "!", "-f", "/backups/FALHOU-ultimo-backup.txt"], interval: 60s, retries: 1 }
     depends_on: { postgres: { condition: service_healthy } }
     deploy: { resources: { limits: { cpus: "0.1", memory: 256m } } }
     <<: *logs

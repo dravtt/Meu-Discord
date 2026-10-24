@@ -5,12 +5,37 @@ set -uo pipefail
 load_env
 APP="http://127.0.0.1:${VOKA_APP_PORT:-3001}"; LK="http://127.0.0.1:${VOKA_LIVEKIT_PORT:-7880}"
 
-step "Contentores"
+step "Contentores (todos devem estar running + healthy, sem reinícios)"
 for n in voka-app voka-postgres voka-livekit voka-backup; do
-  st=$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}' "$n" 2>/dev/null || echo "ausente")
-  case "$st" in running*unhealthy*|ausente|exited*|restarting*) fail "$n: $st";; *) ok "$n: $st";; esac
+  st=$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}sem-healthcheck{{end}} {{.RestartCount}}' "$n" 2>/dev/null || echo "ausente - -")
+  read -r run health restarts <<<"$st"
+  if [ "$run" = running ] && [ "$health" = healthy ] && [ "$restarts" = 0 ]; then ok "$n: running, healthy"
+  else fail "$n: estado=$run saúde=$health reinícios=$restarts"; fi
 done
-pub=$(docker port voka-postgres 2>/dev/null); [ -z "$pub" ] && ok "PostgreSQL não está publicado" || fail "PostgreSQL publicado: $pub"
+pub=$(docker port voka-postgres 2>/dev/null); [ -z "$pub" ] && ok "PostgreSQL sem porta publicada" || fail "PostgreSQL publicado: $pub"
+docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' voka-app voka-postgres voka-livekit voka-backup | grep -vqx 'voka_net ' \
+  && fail "algum contentor do Voka está fora da rede voka_net (ou noutra rede)" || ok "todos só na rede voka_net"
+
+step "Limites efetivos (docker inspect)"
+tot_cpu=0; tot_mem=0
+for n in voka-app voka-postgres voka-livekit voka-backup; do
+  read -r cpu mem <<<"$(docker inspect -f '{{.HostConfig.NanoCpus}} {{.HostConfig.Memory}}' "$n" 2>/dev/null || echo "0 0")"
+  [ "$cpu" -gt 0 ] && [ "$mem" -gt 0 ] || fail "$n sem limite de CPU/memória"
+  info "$n: $(awk "BEGIN{print $cpu/1e9}") vCPU, $((mem/1024/1024)) MB"
+  tot_cpu=$((tot_cpu+cpu)); tot_mem=$((tot_mem+mem))
+done
+if [ "$tot_cpu" -le 2000000000 ] && [ "$tot_mem" -le $((4*1024*1024*1024)) ]; then ok "total: $(awk "BEGIN{print $tot_cpu/1e9}") vCPU, $((tot_mem/1024/1024)) MB (limite combinado: 2 vCPU / 4096 MB)"
+else fail "total acima do combinado: $(awk "BEGIN{print $tot_cpu/1e9}") vCPU, $((tot_mem/1024/1024)) MB"; fi
+
+step "Backup"
+last=$(ls -1t backups/voka-????-??-??.sql.gz 2>/dev/null | head -1)
+if [ -f backups/FALHOU-ultimo-backup.txt ]; then fail "o último backup automático falhou: $(cat backups/FALHOU-ultimo-backup.txt)"
+elif [ -z "$last" ]; then warn "ainda não há backup automático"
+elif ! verify_dump "$last"; then fail "backup $last inválido"
+elif [ -n "$(find "$last" -mmin +1560)" ]; then fail "último backup tem mais de 26 h: $last"
+else ok "último backup válido: $last ($(du -h "$last" | cut -f1))"; fi
+[ "$(stat -c %a backups)" = 700 ] && ok "pasta backups com permissão 700" || warn "pasta backups com permissão $(stat -c %a backups) (esperado 700)"
+for f in .env livekit.yaml; do [ "$(stat -c %a "$f" 2>/dev/null)" = 600 ] && ok "$f com permissão 600" || fail "$f sem permissão 600"; done
 
 step "Acesso local (127.0.0.1)"
 curl -fs "$APP/api/health" | grep -q '"ok":true' && ok "site/API em $APP" || fail "site/API não responde em $APP"

@@ -10,3 +10,5 @@ deploy/.env
 deploy/livekit.yaml
 deploy/backups
 ccr-ca.crt
+deploy/.ultima-atualizacao*
+deploy/.voka.lock

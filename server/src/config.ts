@@ -29,6 +29,10 @@ export const config = {
   /** Usernames that can see reports and ban accounts. Empty: the first account created is the admin. */
   /** While the beta is open, new accounts get the Beta badge. Turn off with NEXO_BETA=off when the beta ends. */
   betaOpen: process.env.NEXO_BETA !== 'off',
+  /** Admins by verified e-mail: safer than usernames, which anyone could register first. */
+  adminEmails: (process.env.NEXO_ADMIN_EMAILS ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
+  /** With no admin configured, the first account is admin. Off in production (NODE_ENV=production) unless NEXO_FIRST_USER_ADMIN=on. */
+  firstUserAdmin: process.env.NEXO_FIRST_USER_ADMIN ? process.env.NEXO_FIRST_USER_ADMIN === 'on' : process.env.NODE_ENV !== 'production',
   admins: (process.env.NEXO_ADMINS ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   mailFrom: process.env.MAIL_FROM ?? 'Voka <no-reply@voka.app>',
   /** Tests turn these off. */

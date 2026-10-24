@@ -14,12 +14,18 @@ moderationRouter.use(requireAuth);
 
 export const REPORT_REASONS = ['spam', 'harassment', 'adult', 'scam', 'other'] as const;
 
-/** Voka admins: the usernames in NEXO_ADMINS, or (when that is empty) whoever created the first account. */
+/**
+ * Voka admins: accounts whose verified e-mail is in NEXO_ADMIN_EMAILS or whose username is in NEXO_ADMINS.
+ * With neither set, whoever created the first account (only outside production, see config.firstUserAdmin).
+ */
 export async function isAdmin(userId: string) {
-  const u = await one<{ username: string; first: boolean }>(
-    'SELECT username, id = (SELECT id FROM users ORDER BY created_at, id LIMIT 1) AS first FROM users WHERE id = $1', [userId]);
+  const u = await one<{ username: string; email: string | null; email_verified: boolean; first: boolean }>(
+    'SELECT username, email, email_verified, id = (SELECT id FROM users ORDER BY created_at, id LIMIT 1) AS first FROM users WHERE id = $1', [userId]);
   if (!u) return false;
-  return config.admins.length ? config.admins.includes(u.username) : u.first;
+  if (config.adminEmails.length || config.admins.length) {
+    return (!!u.email && u.email_verified && config.adminEmails.includes(u.email.toLowerCase())) || config.admins.includes(u.username);
+  }
+  return config.firstUserAdmin && u.first;
 }
 
 async function requireAdmin(userId: string) {
