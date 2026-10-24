@@ -882,3 +882,10 @@ kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; background: v
 .top-game-bar { height: 6px; border-radius: 3px; background: var(--bg-3); overflow: hidden; }
 .top-game-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #8b4dff, #6a26f0); }
 .top-game time { font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.activity-tab { display: flex; flex-direction: column; gap: 14px; }
+.activity-tab .activity-card { margin-top: 0; }
+.profile-side .activity-card { background: var(--bg-1); }
+.activity-card.idle p { margin: 0; }
+.tab-live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #23c55e; margin-left: 6px; vertical-align: middle; box-shadow: 0 0 0 3px rgba(35, 197, 94, .25); }
+.detect-note { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; background: rgba(35, 197, 94, .1); border: 1px solid rgba(35, 197, 94, .3); color: var(--text-2); }
+.detect-note.warn { background: rgba(245, 158, 11, .1); border-color: rgba(245, 158, 11, .35); }

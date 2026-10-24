@@ -373,7 +373,9 @@ await step('Mini-perfil: status num item só, jogo atual, insígnias e contas', 
   await pioneer.uncheck({ force: true });
   await ana.keyboard.press('Escape');
   await bia.locator('.member', { hasText: 'Ana' }).first().click();
-  await bia.locator('.profile-card .activity-card', { hasText: 'VALORANT' }).first().waitFor();
+  await bia.getByRole('button', { name: /^Atividade/ }).click();
+  await bia.locator('.activity-tab .activity-card', { hasText: 'VALORANT' }).waitFor();
+  await bia.screenshot({ path: `${SHOTS}/24-activity-tab.png` });
   await bia.keyboard.press('Escape');
 });
 await step('Atalhos de teclado, denúncia e administração', async () => {

@@ -11,7 +11,7 @@ import { UserMenu, openMenu } from './ContextMenu';
 import { UserSettings } from './modals/UserSettings';
 import { Mural } from './Mural';
 import { BadgeRow } from './Badges';
-import { ActivityCard, TopGames } from './Activity';
+import { ActivityCard, ActivityTab } from './Activity';
 
 const longDate = (d: string | undefined) => (d ? new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
@@ -19,9 +19,9 @@ const longDate = (d: string | undefined) => (d ? new Date(d).toLocaleDateString(
  * The look of a profile: banner, avatar, styled name and the profile colors, which tint the whole
  * card. Used by the full profile, the panel popout and the live preview in settings.
  */
-export function ProfileView({ user, name, nameColor, status, customStatus, actions, children, compact }: {
+export function ProfileView({ user, name, nameColor, status, customStatus, actions, children, compact, hideActivity }: {
   user: User; name: string; nameColor?: string; status: string; customStatus?: string;
-  actions?: ReactNode; children?: ReactNode; compact?: boolean;
+  actions?: ReactNode; children?: ReactNode; compact?: boolean; hideActivity?: boolean;
 }) {
   const colors = user.profileColors ?? [];
   const live = useStore((s) => s.presence[user.id]);
@@ -47,7 +47,7 @@ export function ProfileView({ user, name, nameColor, status, customStatus, actio
             <span className="dot">•</span><span>{STATUS_LABEL[status] ?? status}</span>
           </div>
           {customStatus && <div className="pc-status">{customStatus}</div>}
-          {activity && <ActivityCard activity={activity} />}
+          {activity && !hideActivity && <ActivityCard activity={activity} />}
           {children}
         </div>
       </div>
@@ -61,7 +61,7 @@ type FullUser = User & { mutualServerIds: string[]; mutualFriendIds?: string[]; 
 export function ProfileCard({ userId, serverId }: { userId: string; serverId: string | null }) {
   const [user, setUser] = useState<FullUser | null>(null);
   const [note, setNote] = useState('');
-  const [tab, setTab] = useState<'mural' | 'servers' | 'friends'>('mural');
+  const [tab, setTab] = useState<'mural' | 'activity' | 'servers' | 'friends'>('mural');
   const me = useStore((s) => s.me);
   const relationships = useStore((s) => s.relationships);
   const relationship = relationships.find((r) => r.user.id === userId);
@@ -79,7 +79,7 @@ export function ProfileCard({ userId, serverId }: { userId: string; serverId: st
   const isMe = me?.id === userId;
   const name = serverId ? memberName(serverId, shown) : shown.displayName;
   const widgets = shown.widgets ?? [];
-  const topGames = (live?.topGames ?? user.topGames) ?? [];
+  const topGames = user.topGames ?? [];
   const mutualServers = user.mutualServerIds.map((id) => servers[id]).filter(Boolean);
   const mutualFriends = (user.mutualFriendIds ?? []).map((id) => relationships.find((r) => r.user.id === id)?.user).filter((u): u is User => !!u);
 
@@ -107,7 +107,7 @@ export function ProfileCard({ userId, serverId }: { userId: string; serverId: st
     <div className="profile-full" role="dialog" aria-label={`Perfil de ${name}`}>
       <button className="close-x" onClick={closeModal} aria-label="Fechar"><X size={18} /></button>
       <ProfileView user={shown} name={name} nameColor={memberColor(serverId, userId)} status={presence?.status ?? 'offline'}
-        customStatus={presence?.customStatus} actions={actions}>
+        customStatus={presence?.customStatus} actions={actions} hideActivity>
         {shown.bio && <div className="pc-section"><h4>Sobre mim</h4><p className="pc-bio">{shown.bio}</p></div>}
         <div className="pc-section">
           <h4>Membro desde</h4>
@@ -131,19 +131,18 @@ export function ProfileCard({ userId, serverId }: { userId: string; serverId: st
       <div className="profile-side">
         <nav className="profile-tabs">
           <button className={tab === 'mural' ? 'active' : ''} onClick={() => setTab('mural')}>Mural</button>
+          <button className={tab === 'activity' ? 'active' : ''} onClick={() => setTab('activity')}>Atividade{presence?.activity ? <i className="tab-live" title="Jogando agora" /> : null}</button>
           {!isMe && <button className={tab === 'servers' ? 'active' : ''} onClick={() => setTab('servers')}>Servidores em comum ({mutualServers.length})</button>}
           {!isMe && <button className={tab === 'friends' ? 'active' : ''} onClick={() => setTab('friends')}>Amigos em comum ({mutualFriends.length})</button>}
         </nav>
         <div className="profile-side-body">
-          {tab === 'mural' && <>
-            {topGames.length > 0 && <TopGames games={topGames} />}
-            {widgets.length
-              ? <Mural widgets={widgets} />
-              : topGames.length === 0 && <div className="mural-empty">
-                <p className="muted">{isMe ? 'Seu mural está vazio. Mostre seu jogo favorito, os jogos que você curte, ou jogue no app do computador para aparecerem os mais jogados da semana.' : 'Nada no mural por enquanto.'}</p>
-                {isMe && <button className="btn primary" onClick={() => openModal(<UserSettings />)}>Adicionar widget</button>}
-              </div>}
-          </>}
+          {tab === 'mural' && (widgets.length
+            ? <Mural widgets={widgets} />
+            : <div className="mural-empty">
+              <p className="muted">{isMe ? 'Seu mural está vazio. Mostre seu jogo favorito e os jogos que você curte.' : 'Nada no mural por enquanto.'}</p>
+              {isMe && <button className="btn primary" onClick={() => openModal(<UserSettings />)}>Adicionar widget</button>}
+            </div>)}
+          {tab === 'activity' && <ActivityTab activity={presence?.activity ?? null} topGames={topGames} isMe={isMe} />}
           {tab === 'servers' && (mutualServers.length
             ? mutualServers.map((s) => (
               <button key={s.id} className="list-row" onClick={() => { set({ view: { kind: 'server', serverId: s.id } }); closeModal(); }}>

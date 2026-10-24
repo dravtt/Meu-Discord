@@ -30,29 +30,91 @@ const KNOWN = [
   { exe: ['eldenring.exe'], name: 'ELDEN RING', steamId: 1245620 },
   { exe: ['palworld-win64-shipping.exe'], name: 'Palworld', steamId: 1623730 },
   { exe: ['brawlhalla.exe'], name: 'Brawlhalla', steamId: 291550 },
+  { exe: ['dayz_x64.exe', 'dayz_be.exe'], name: 'DayZ', steamId: 221100 },
 ];
 
 const byExe = new Map(KNOWN.flatMap((g) => g.exe.map((e) => [e, g])));
 
-/** Names of the running processes, lowercased. */
-function processNames() {
+const fs = require('node:fs');
+const path = require('node:path');
+
+/** Programs that live in game folders but are not the game itself. */
+const NOT_A_GAME = /launcher|crash|anticheat|easyanticheat|battleye|beservice|redist|setup|unins|helper|updater|overlay|reporter|dxsetup|vcredist|cefprocess|webview|bootstrap|prereq/i;
+const SKIP_DIRS = new Set(['steamworks shared', 'steamvr', 'steam controller configs', 'launcher', 'directxredist', 'epic online services', 'riot client']);
+
+/** Steam libraries: "installdir" -> { steamId, name }, read from appmanifest_*.acf and cached for 10 min. */
+const libraries = new Map();
+function steamApps(root) {
+  const cached = libraries.get(root);
+  if (cached && Date.now() - cached.at < 10 * 60_000) return cached.apps;
+  const apps = new Map();
+  try {
+    for (const f of fs.readdirSync(path.join(root, 'steamapps'))) {
+      if (!/^appmanifest_\d+\.acf$/i.test(f)) continue;
+      const text = fs.readFileSync(path.join(root, 'steamapps', f), 'utf8');
+      const appid = /"appid"\s+"(\d+)"/i.exec(text)?.[1];
+      const name = /"name"\s+"([^"]+)"/i.exec(text)?.[1];
+      const dir = /"installdir"\s+"([^"]+)"/i.exec(text)?.[1];
+      if (appid && name && dir) apps.set(dir.toLowerCase(), { steamId: Number(appid), name });
+    }
+  } catch { /* library not readable */ }
+  libraries.set(root, { at: Date.now(), apps });
+  return apps;
+}
+
+/**
+ * Any game installed through Steam, Epic or Riot, recognized by the folder its program runs from.
+ * Steam games also get their real name and Steam id (for the cover) from Steam's own files.
+ */
+function gameFromPath(full) {
+  const p = full.replace(/\//g, '\\');
+  const exe = p.split('\\').pop();
+  if (NOT_A_GAME.test(exe)) return null;
+  let m = /^(.*?)\\steamapps\\common\\([^\\]+)\\/i.exec(p);
+  if (m) {
+    if (SKIP_DIRS.has(m[2].toLowerCase())) return null;
+    const app = steamApps(full.slice(0, m[1].length)).get(m[2].toLowerCase());
+    return app ? { name: app.name, steamId: app.steamId } : { name: m[2] };
+  }
+  m = /\\(epic games|riot games)\\([^\\]+)\\/i.exec(p);
+  if (m && !SKIP_DIRS.has(m[2].toLowerCase())) return { name: m[2] };
+  return null;
+}
+
+function run(cmd, args) {
   return new Promise((resolve) => {
-    const [cmd, args] = process.platform === 'win32' ? ['tasklist', ['/FO', 'CSV', '/NH']] : ['ps', ['-A', '-o', 'comm=']];
-    execFile(cmd, args, { windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 10_000 }, (err, out) => {
-      if (err) return resolve([]);
-      const names = out.split(/\r?\n/).map((line) => (process.platform === 'win32' ? line.split('","')[0].replace(/^"/, '') : line.split('/').pop()).trim().toLowerCase());
-      resolve(names.filter(Boolean));
-    });
+    execFile(cmd, args, { windowsHide: true, maxBuffer: 16 * 1024 * 1024, timeout: 15_000 }, (err, out) => resolve(err ? '' : out));
   });
 }
 
-/** The first known game that is open right now, or null. */
+/** Running programs: their file name (lowercased) and, on Windows, their full path when readable. */
+async function processes() {
+  if (process.platform !== 'win32') {
+    const out = await run('ps', ['-A', '-o', 'comm=']);
+    return out.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((p) => ({ name: p.split('/').pop().toLowerCase(), path: p }));
+  }
+  const out = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+    '[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-Process | ForEach-Object { $_.ProcessName + ".exe|" + $_.Path }']);
+  return out.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => {
+    const [name, p] = l.split('|');
+    return { name: name.toLowerCase(), path: p || '' };
+  });
+}
+
+const pack = (g) => ({ name: g.name, ...(g.steamId ? { steamId: g.steamId } : {}), ...(g.catalogId ? { catalogId: g.catalogId } : {}) });
+
+/** The game that is open right now (games from the known list first, then any Steam/Epic/Riot game), or null. */
 async function runningGame() {
-  for (const name of await processNames()) {
-    const g = byExe.get(name) ?? byExe.get(`${name}.exe`);
-    if (g) return { name: g.name, ...(g.steamId ? { steamId: g.steamId } : {}), ...(g.catalogId ? { catalogId: g.catalogId } : {}) };
+  const list = await processes();
+  for (const p of list) {
+    const g = byExe.get(p.name);
+    if (g) return pack(g);
+  }
+  for (const p of list) {
+    const g = p.path && gameFromPath(p.path);
+    if (g) return pack(g);
   }
   return null;
 }
 
-module.exports = { runningGame };
+module.exports = { runningGame, gameFromPath };
