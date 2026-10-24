@@ -1,136 +1,177 @@
-# Colocar o Voka no ar numa VPS
+# Voka na VPS TOWER: guia de instalação (para revisão)
 
-Este guia instala o Voka numa VPS Linux (testado em Ubuntu 22.04) com Docker. O kit sobe estes serviços:
+Este kit instala o Voka **ao lado** do que já roda na VPS, sem substituir nem interromper nada. Nenhum script altera a máquina sem pedir confirmação (é preciso digitar `SIM`). Swap, firewall e proxy reverso **nunca** são alterados pelos scripts. Essas mudanças ficam com o administrador e estão descritas abaixo.
 
-| Serviço | O que faz | Limite |
+## O que é instalado
+
+| Contentor | Função | Rede / portas | Limite |
+|---|---|---|---|
+| `voka-app` | Site, API e chat em tempo real | `127.0.0.1:3001` | 0,8 vCPU · 1,5 GB |
+| `voka-postgres` | Banco de dados exclusivo do Voka | **sem porta publicada** | 0,5 vCPU · 1 GB |
+| `voka-livekit` | Chamadas de voz e vídeo | `127.0.0.1:7880` (sinal) · **TCP 7881** e **UDP 7882** públicas (mídia) | 0,6 vCPU · 1 GB |
+| `voka-backup` | `pg_dump` diário em `deploy/backups`, guarda 14 dias | sem porta | 0,1 vCPU · 256 MB |
+| **Total** | | | **2 vCPU · ~3,8 GB** |
+
+Recursos exclusivos do Voka:
+- projeto Compose `voka`
+- rede `voka_net`
+- volumes `voka_pgdata` e `voka_uploads`
+- banco e usuário `voka`
+
+Os logs são rotacionados (5 arquivos de 20 MB por contentor).
+
+> **Portas das chamadas.** O kit usa **uma porta UDP só (7882)** e a TCP 7881, em vez da faixa UDP 50000–50100 citada antes. Isso deixa o firewall mais simples. Os números podem mudar no `deploy/.env`.
+
+## Arquivos
+
+| Arquivo | Para quê | Altera a VPS? |
 |---|---|---|
-| `app` | Site + API do Voka | 2 vCPU, 2 GB |
-| `postgres` | Banco de dados | 1 vCPU, 1 GB |
-| `livekit` | Chamadas de voz e vídeo | 1,5 vCPU, 1 GB |
-| `caddy` | HTTPS automático (Let's Encrypt) | 0,5 vCPU, 256 MB |
-| `backup` | Cópia diária do banco em `deploy/backups` (guarda 14 dias) | 0,5 vCPU, 256 MB |
+| `docker-compose.yml` | Definição dos 4 contentores | — |
+| `.env.example` | Modelo da configuração | — |
+| `livekit.yaml.template` | Modelo da configuração da voz | — |
+| `proxy-examples/` | Blocos prontos para nginx, Caddy, Traefik e Apache | — |
+| `preflight.sh` | Verificação antes de instalar | **Não** (só lê) |
+| `install.sh` | Gera o `.env` e depois instala | Sim, com confirmação |
+| `smoke-test.sh` | Testes depois de instalar ou atualizar | **Não** (só lê) |
+| `update.sh` | Atualiza (backup + versão anterior guardada) | Sim, com confirmação |
+| `rollback.sh` | Volta para a versão anterior, opcionalmente com o banco | Sim, com confirmação |
+| `restore.sh` | Restaura um backup do banco | Sim, com confirmação |
+| `uninstall.sh` | Remove os contentores e mantém os dados | Sim, com confirmação |
 
-Os serviços ficam isolados no Docker e voltam a ligar sozinhos quando a VPS reinicia.
+## Passo a passo
 
-## 1. Antes de começar
+### 0. Código na VPS
+Coloque o projeto numa pasta própria, por exemplo `/opt/voka`:
+- com `git clone https://github.com/dravtt/Meu-Discord.git /opt/voka` (se o repositório for privado, use um token de leitura);
+- ou copie o projeto por `scp`/`rsync`.
 
-**Domínio.** No painel do domínio, crie um registro **A** apontando para o IP público da VPS:
-
-| Tipo | Nome | Valor |
-|---|---|---|
-| A | `@` (ou um subdomínio, ex.: `app`) | IP da VPS |
-
-**Firewall.** Libere estas portas de **entrada**, tanto no painel da nuvem (HostGator/Oracle: "Security List" ou "Firewall") quanto no `ufw`, se ele estiver ativo:
-
-| Porta | Protocolo | Para quê |
-|---|---|---|
-| 80 | TCP | Certificado HTTPS e redirecionamento |
-| 443 | TCP e UDP | Site (HTTPS e HTTP/3) |
-| 7881 | TCP | Chamadas (quando o UDP está bloqueado) |
-| 7882 | UDP | Chamadas (caminho principal, melhor qualidade) |
-
-Com `ufw` ativo:
-
+### 1. Verificar, sem alterar nada
 ```bash
-sudo ufw allow 80/tcp && sudo ufw allow 443 && sudo ufw allow 7881/tcp && sudo ufw allow 7882/udp
+cd /opt/voka
+sudo bash deploy/preflight.sh vokaapp.com.br
 ```
+O script mostra:
+- Docker e Compose;
+- contentores, volumes ou rede `voka*` que já existam;
+- CPU, RAM, disco e swap;
+- se as portas 3001, 7880, 7881/tcp e 7882/udp estão livres;
+- quem usa as portas 80/443, e se o proxy roda em Docker;
+- regras do `ufw` e do `iptables`;
+- IP público, DNS do domínio e certificado HTTPS.
 
-## 2. Instalar
+O firewall do **provedor** (Security List da Oracle/HostGator) não pode ser visto de dentro da VPS. Ele precisa liberar a **entrada TCP 7881 e UDP 7882**.
 
+### 2. Gerar a configuração
 ```bash
-# baixar o código (repositório privado: use um token do GitHub ou copie o projeto por scp)
-git clone https://github.com/dravtt/Meu-Discord.git voka
-cd voka
 sudo bash deploy/install.sh
 ```
+Na primeira execução, o script **só cria o `deploy/.env`**, com senhas aleatórias e o IP público, e para. Revise o arquivo:
+- `VOKA_DOMAIN` e `VOKA_PUBLIC_IP`;
+- as portas, se alguma estiver em uso;
+- `SMTP_URL` e `MAIL_FROM`, para os e-mails de verificação.
 
-O script faz o seguinte:
-1. Instala o Docker, se ainda não tiver.
-2. Pergunta o domínio e cria o arquivo `deploy/.env` com senhas aleatórias (banco, login e chaves de voz).
-3. Descobre o IP público para as chamadas. Se errar, coloque `VOKA_PUBLIC_IP=x.x.x.x` no `deploy/.env` e rode o script de novo.
-4. Cria 4 GB de swap, se a VPS não tiver nenhuma. Para pular essa etapa, rode `VOKA_NO_SWAP=1 sudo -E bash deploy/install.sh`.
-5. Constrói e liga tudo. Na primeira vez leva alguns minutos.
-
-No fim, abra `https://SEU-DOMINIO`. **A primeira conta criada vira administradora.**
-
-## 3. E-mails de verificação
-
-Edite `deploy/.env` (`sudo nano deploy/.env`), tire o `#` das linhas `SMTP_URL` e `MAIL_FROM`, preencha-as e rode:
-
+### 3. Instalar
 ```bash
 sudo bash deploy/install.sh
 ```
+O script roda o preflight de novo, mostra o plano, pede `SIM`, constrói a imagem, liga os contentores, espera o `voka-app` ficar saudável e roda os testes locais.
 
-Enquanto não houver SMTP, os códigos aparecem em `sudo docker compose -f deploy/docker-compose.yml logs app`.
+### 4. Proxy reverso existente
+Escolha o exemplo em `deploy/proxy-examples/` que corresponde ao proxy da TOWER e acrescente-o à configuração atual, sem mexer nos outros sites. Regras:
+- `/rtc`, `/rtc/*` e `/twirp/*` vão para `127.0.0.1:7880`, com WebSocket;
+- todo o resto vai para `127.0.0.1:3001`, com WebSocket, `X-Forwarded-For`/`Proto` e uploads de até 90 MB.
 
-## 4. Atualizar para uma versão nova
-
+Se o **proxy roda num contentor Docker**, ele não alcança o `127.0.0.1` da VPS. Nesse caso, use os destinos `voka-app:3001` e `voka-livekit:7880` e ligue o contentor do proxy à rede do Voka:
 ```bash
-cd voka
+docker network connect voka_net <contentor-do-proxy>
+```
+Esse comando não reinicia o proxy. Para desfazer: `docker network disconnect voka_net <contentor-do-proxy>`.
+
+Valide e recarregue o proxy pelo procedimento normal dele (`nginx -t && systemctl reload nginx`, `caddy reload`, …). O certificado do domínio é emitido pelo próprio proxy.
+
+### 5. Firewall (administrador)
+Libere a entrada **TCP 7881** e **UDP 7882**:
+- no painel do provedor;
+- no servidor, se houver regras próprias. Com `ufw`, por exemplo: `ufw allow 7881/tcp` e `ufw allow 7882/udp`.
+
+As portas 3001 e 7880 ficam só em `127.0.0.1` e **não** devem ser abertas.
+
+### 6. Testar
+```bash
+bash deploy/smoke-test.sh
+```
+O script verifica:
+- contentores saudáveis e o PostgreSQL sem porta publicada;
+- site e voz em 127.0.0.1;
+- `https://DOMINIO/api/health`;
+- `/rtc` chegando à voz (resposta 401);
+- WebSocket do chat (resposta 101);
+- validade do certificado.
+
+Por fim, faça um teste real:
+- de **outro computador**: `nc -vz IP 7881`;
+- uma **chamada de voz** entre duas pessoas em redes diferentes (Wi-Fi e 4G).
+
+A **primeira conta criada** vira a administradora do Voka.
+
+## Swap (proposta, não é aplicada pelos scripts)
+A TOWER não tem swap. Recomendação: criar **4 GB**, se o administrador aprovar.
+```bash
+sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+Para desfazer: `sudo swapoff /swapfile && sudo rm /swapfile` e apague a linha correspondente em `/etc/fstab`.
+
+## Atualizar
+Coloque o código novo na pasta (por exemplo, `git pull`) e rode:
+```bash
 sudo bash deploy/update.sh
 ```
+O script faz o seguinte:
+1. faz um backup do banco (`backups/voka-antes-update-…sql.gz`);
+2. guarda a imagem atual como `voka-app:previous`;
+3. constrói a nova e reinicia **só** o `voka-app`;
+4. roda os testes.
 
-O script faz `git pull` e reconstrói o Voka. O banco, os uploads e as configurações são mantidos.
+Se algo falhar, o script mostra o comando de rollback.
 
-## 5. Dia a dia
-
-Rode estes comandos dentro da pasta `voka/deploy`:
-
-| Para… | Comando |
-|---|---|
-| Ver se está tudo ligado | `sudo docker compose ps` |
-| Ver consumo de CPU, RAM e rede | `sudo docker stats` |
-| Ver erros do Voka | `sudo docker compose logs --tail 100 app` |
-| Ver erros das chamadas | `sudo docker compose logs --tail 100 livekit` |
-| Reiniciar tudo | `sudo docker compose restart` |
-| Desligar | `sudo docker compose down` (os dados continuam salvos) |
-
-**Backups:** ficam em `deploy/backups/voka-AAAA-MM-DD.sql.gz`. Copie-os de vez em quando para **fora** da VPS. Para restaurar um backup (isso apaga os dados atuais):
-
+## Rollback
 ```bash
-sudo docker compose stop app
-gunzip -c backups/voka-AAAA-MM-DD.sql.gz | sudo docker compose exec -T postgres sh -c 'dropdb -U voka voka && createdb -U voka voka && psql -q -U voka voka'
-sudo docker compose start app
+sudo bash deploy/rollback.sh                                           # só o programa
+sudo bash deploy/rollback.sh backups/voka-antes-update-AAAA-MM-DD-HHMMSS.sql.gz   # programa + banco
 ```
+Restaure o banco junto quando a versão nova tiver alterado a estrutura dele (migrations). Na dúvida, restaure.
 
-As imagens e os arquivos enviados ficam no volume Docker `voka_uploads`.
+## Backups e restauração
+- O backup é diário e automático, em `deploy/backups/voka-AAAA-MM-DD.sql.gz`, com 14 dias guardados. **Copie esses arquivos para fora da VPS** com a rotina de backup externo da TOWER.
+- Os uploads (imagens e arquivos) ficam no volume `voka_uploads`. Para copiá-lo:
+  `docker run --rm -v voka_uploads:/u -v "$PWD":/out alpine tar czf /out/voka-uploads.tgz -C /u .`
+- Para restaurar o banco a partir de um backup:
+  ```bash
+  sudo bash deploy/restore.sh backups/voka-AAAA-MM-DD.sql.gz
+  ```
+  Antes de apagar, o script guarda o estado atual (`backups/voka-antes-restore-…`). Depois para o Voka, recria **apenas** o banco `voka`, carrega o backup e liga de novo.
 
-## Portas 80/443 ocupadas
-
-Se a VPS já tem um servidor web (nginx, Apache, Traefik…) nas portas 80/443, o `install.sh` percebe e **não** liga o Caddy. Nesse caso, o servidor web que já existe deve repassar o domínio do Voka para:
-
-- `/rtc`, `/rtc/*` e `/twirp/*` → `http://127.0.0.1:7880` (voz, com WebSocket)
-- todo o resto → `http://127.0.0.1:3001` (site e API, com WebSocket)
-
-Exemplo para nginx:
-
-```nginx
-server {
-    server_name vokaapp.com.br;
-    client_max_body_size 90m;
-    location ~ ^/(rtc|twirp)(/|$) {
-        proxy_pass http://127.0.0.1:7880;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-    }
-    location / {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 1h;
-    }
-    # + certificado HTTPS (ex.: certbot --nginx)
-}
+## Remover
+```bash
+sudo bash deploy/uninstall.sh      # remove contentores e rede; dados ficam
+docker volume rm voka_pgdata voka_uploads   # SÓ se quiser apagar os dados (irreversível)
 ```
+Depois, remova o bloco do Voka do proxy reverso e as regras de firewall das portas 7881 e 7882.
 
-Se as portas 3001 ou 7880 já estiverem em uso, mude `VOKA_APP_PORT` e `VOKA_LIVEKIT_PORT` no `deploy/.env`.
+## Como este kit foi testado
+O kit foi testado numa máquina de teste com **nginx já ocupando as portas 80/443**, usando o exemplo `proxy-examples/nginx.conf` e um certificado próprio. Resultados:
+- preflight sem erros;
+- instalação e smoke-test completos;
+- teste ponta a ponta no navegador: cadastro, servidores, convites, chat em tempo real, uploads, DM, **chamadas de voz e vídeo**;
+- `update.sh`, depois `rollback.sh` com restauração do banco (o dado inserido depois do backup sumiu, como esperado), e `uninstall.sh` mantendo os volumes;
+- consumo em repouso: app ~100 MB, banco ~64 MB, voz ~14 MB de RAM.
 
-## Capacidade e rede
+## Acompanhamento
+| Para… | Comando (na pasta `deploy`) |
+|---|---|
+| Estado | `sudo docker compose ps` |
+| Consumo | `sudo docker stats voka-app voka-postgres voka-livekit` |
+| Logs | `sudo docker compose logs --tail 100 app` (ou `livekit`) |
 
-Com os limites acima, o kit atende bem um grupo inicial (dezenas de pessoas em chamada). Acompanhe o uso com `docker stats` e pelo tráfego de rede no painel da nuvem. Para crescer, aumente os `limits` em `deploy/docker-compose.yml` ou leve o `livekit` para uma VPS só dele.
+O tráfego das chamadas ainda precisa ser medido em uso real. Acompanhe a rede no painel do provedor. Se o Voka crescer, aumente os `limits` no `docker-compose.yml` ou leve o `voka-livekit` para uma VPS separada.

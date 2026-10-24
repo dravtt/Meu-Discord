@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Verificação ANTES da instalação. Só lê informações: não altera nada na VPS.
+#   sudo bash deploy/preflight.sh [dominio]
+set -uo pipefail
+. "$(dirname "$0")/lib.sh"
+load_env
+DOMAIN="${1:-${VOKA_DOMAIN:-}}"
+APP_PORT="${VOKA_APP_PORT:-3001}"; LK_PORT="${VOKA_LIVEKIT_PORT:-7880}"
+TCP_PORT="${VOKA_RTC_TCP_PORT:-7881}"; UDP_PORT="${VOKA_RTC_UDP_PORT:-7882}"
+
+step "Docker"
+if command -v docker >/dev/null && docker compose version >/dev/null 2>&1; then
+  ok "$(docker --version | cut -d, -f1), $(docker compose version --short 2>/dev/null | sed 's/^/compose /')"
+else fail "Docker ou o plugin 'docker compose' não encontrado"; fi
+for n in voka-app voka-postgres voka-livekit voka-backup; do
+  docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$n" && info "contentor $n já existe (instalação anterior do Voka)"
+done
+docker network ls --format '{{.Name}}' 2>/dev/null | grep -qx voka_net && info "rede voka_net já existe"
+for v in voka_pgdata voka_uploads; do docker volume ls --format '{{.Name}}' 2>/dev/null | grep -qx "$v" && info "volume $v já existe (dados preservados)"; done
+
+step "Recursos"
+info "CPU: $(nproc) vCPU · RAM livre: $(free -h | awk '/^Mem/{print $7}') de $(free -h | awk '/^Mem/{print $2}')"
+avail_gb=$(df -BG --output=avail . | tail -1 | tr -dc 0-9)
+[ "${avail_gb:-0}" -ge 20 ] && ok "disco livre: ${avail_gb} GB" || warn "disco livre: ${avail_gb} GB (recomendado: 20 GB ou mais)"
+if [ "$(swapon --noheadings | wc -l)" = 0 ]; then warn "sem swap. Proposta (só com aprovação do administrador): ver 'Swap' no LEIA-ME.md"; else ok "swap ativa: $(swapon --noheadings --show=SIZE | paste -sd+)"; fi
+
+step "Portas internas do Voka (devem estar livres; só 127.0.0.1)"
+for p in "$APP_PORT" "$LK_PORT"; do
+  if port_busy_tcp "$p"; then
+    if voka_running; then info "TCP $p em uso (pelo próprio Voka já instalado)"; else fail "TCP $p já está em uso por '$(who_port "$p")'. Mude no deploy/.env"; fi
+  else ok "TCP 127.0.0.1:$p livre"; fi
+done
+
+step "Portas públicas das chamadas"
+if port_busy_tcp "$TCP_PORT" && ! voka_running; then fail "TCP $TCP_PORT já está em uso por '$(who_port "$TCP_PORT")'"; else ok "TCP $TCP_PORT livre na VPS"; fi
+if port_busy_udp "$UDP_PORT" && ! voka_running; then fail "UDP $UDP_PORT já está em uso"; else ok "UDP $UDP_PORT livre na VPS"; fi
+
+step "Proxy reverso existente (portas 80/443, não será alterado)"
+for p in 80 443; do
+  if port_busy_tcp "$p"; then info "TCP $p: '$(who_port "$p")'"; else warn "nada escutando na porta $p"; fi
+done
+if who_port 443 | grep -q docker-proxy; then
+  info "o proxy roda num contentor Docker: ele não alcança 127.0.0.1 da VPS."
+  info "   Use os nomes voka-app:3001 / voka-livekit:7880 e ligue o proxy à rede voka_net (ver LEIA-ME.md)."
+fi
+
+step "Firewall do servidor"
+if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
+  for rule in "$TCP_PORT/tcp" "$UDP_PORT/udp"; do
+    ufw status | grep -q "^$rule .*ALLOW" && ok "ufw libera $rule" || warn "ufw ativo e sem regra para $rule"
+  done
+else info "ufw inativo"; fi
+if command -v iptables >/dev/null && iptables -S INPUT 2>/dev/null | grep -qE -- '-j (REJECT|DROP)|-P INPUT DROP'; then
+  info "iptables INPUT tem regras de bloqueio (comum nas imagens Oracle). Portas publicadas pelo Docker passam pela cadeia DOCKER, mas confira:"
+  iptables -S INPUT 2>/dev/null | sed 's/^/             /' | head -12
+fi
+info "O firewall do PROVEDOR (HostGator/Oracle 'Security List') não pode ser visto daqui:"
+info "   ele precisa liberar entrada TCP $TCP_PORT e UDP $UDP_PORT."
+
+step "IP público e DNS"
+PUBIP="${VOKA_PUBLIC_IP:-$(curl -fs4 --max-time 8 https://api.ipify.org || true)}"
+[ -n "$PUBIP" ] && ok "IP público: $PUBIP" || warn "não deu para descobrir o IP público (preencha VOKA_PUBLIC_IP no .env)"
+if [ -n "$DOMAIN" ]; then
+  dns=$(getent ahostsv4 "$DOMAIN" | awk '{print $1}' | sort -u | paste -sd' ')
+  if [ -z "$dns" ]; then warn "$DOMAIN ainda não resolve no DNS"
+  elif [ -n "$PUBIP" ] && echo " $dns " | grep -q " $PUBIP "; then ok "$DOMAIN → $dns"
+  else warn "$DOMAIN → $dns (esperado: $PUBIP)"; fi
+
+  step "Certificado HTTPS de $DOMAIN (emitido pelo proxy existente)"
+  cert=$(echo | timeout 8 openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -subject -enddate 2>/dev/null)
+  if [ -n "$cert" ]; then
+    echo "$cert" | sed 's/^/  ·        /'
+    echo | timeout 8 openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" -verify_return_error 2>/dev/null </dev/null | grep -q "Verify return code: 0" \
+      && ok "certificado válido para $DOMAIN" || warn "certificado não é válido para $DOMAIN (o proxy ainda precisa emitir)"
+  else warn "sem certificado em $DOMAIN:443 ainda (normal antes de configurar o proxy)"; fi
+else info "sem domínio informado: rode  bash deploy/preflight.sh vokaapp.com.br  para checar DNS e certificado"; fi
+
+step "Resumo"
+echo "  $ERRORS erro(s), $WARNINGS aviso(s). Nada foi alterado."
+[ "$ERRORS" = 0 ]

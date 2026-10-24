@@ -1,0 +1,9 @@
+# Voka atrás de um Caddy que JÁ existe na VPS. Acrescente este bloco ao Caddyfile atual e rode
+# `caddy reload` (ou `systemctl reload caddy`). O Caddy emite o certificado sozinho.
+# Se o Caddy roda num contentor Docker, use voka-app:3001 e voka-livekit:7880 e rode:
+#   docker network connect voka_net <nome-do-caddy>
+vokaapp.com.br {
+	@voz path /rtc /rtc/* /twirp/*
+	reverse_proxy @voz 127.0.0.1:7880
+	reverse_proxy 127.0.0.1:3001
+}

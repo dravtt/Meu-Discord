@@ -1,10 +1,10 @@
 port: 7880
 rtc:
-  tcp_port: 7881
-  # One UDP port for every call (simpler firewall than a range).
-  udp_port: 7882
+  tcp_port: __TCP_PORT__
+  # One UDP port for every call (simpler firewall than a range of ports).
+  udp_port: __UDP_PORT__
   # The VPS sits behind the cloud's NAT, so calls must be told its public IP.
-  __RTC_IP__
+  node_ip: __PUBLIC_IP__
 keys:
   __KEY__: __SECRET__
 logging:

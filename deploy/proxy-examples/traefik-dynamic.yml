@@ -1,0 +1,23 @@
+# Voka atrás de um Traefik que JÁ existe (provider de ficheiro). Coloque este ficheiro na pasta
+# do "file provider" do Traefik: ele recarrega sozinho, sem reiniciar.
+# Ajuste entryPoints ("websecure") e certResolver ("letsencrypt") aos nomes usados na TOWER.
+# Traefik em Docker: troque 127.0.0.1 por voka-app / voka-livekit e rode
+#   docker network connect voka_net <nome-do-traefik>
+http:
+  routers:
+    voka-voz:
+      rule: Host(`vokaapp.com.br`) && (Path(`/rtc`) || PathPrefix(`/rtc/`) || PathPrefix(`/twirp/`))
+      entryPoints: [websecure]
+      service: voka-voz
+      priority: 100
+      tls: { certResolver: letsencrypt }
+    voka:
+      rule: Host(`vokaapp.com.br`)
+      entryPoints: [websecure]
+      service: voka-app
+      tls: { certResolver: letsencrypt }
+  services:
+    voka-voz:
+      loadBalancer: { servers: [{ url: "http://127.0.0.1:7880" }] }
+    voka-app:
+      loadBalancer: { servers: [{ url: "http://127.0.0.1:3001" }] }
