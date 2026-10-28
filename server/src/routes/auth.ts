@@ -33,8 +33,9 @@ async function sendCode(userId: string, to: string, name: string) {
 }
 
 authRouter.post('/auth/register', async (req, res) => {
-  rateLimit(`register:${req.ip}`, 5, 60 * 60 * 1000, 'Muitas contas criadas daqui. Tente de novo mais tarde.');
   const body = z.object({ username, password, email, birthdate, displayName: z.string().trim().min(1).max(32).optional() }).parse(req.body);
+  // Counted after the form validates, so typos do not burn the quota of a real person.
+  rateLimit(`register:${req.ip}`, 10, 60 * 60 * 1000, 'Muitas contas criadas daqui. Tente de novo mais tarde.');
   if (ageOn(body.birthdate) < MIN_AGE) throw new HttpError(400, `Você precisa ter pelo menos ${MIN_AGE} anos para usar o Voka.`);
   if (await one('SELECT 1 FROM users WHERE username = $1', [body.username])) throw new HttpError(409, 'Esse nome de usuário já está em uso');
   if (await one('SELECT 1 FROM users WHERE lower(email) = $1', [body.email])) throw new HttpError(409, 'Já existe uma conta com esse e-mail');
