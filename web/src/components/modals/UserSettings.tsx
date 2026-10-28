@@ -5,7 +5,7 @@ import { api, setToken } from '../../lib/api';
 import { forgetAccount } from '../../lib/accounts';
 import { useStore, set } from '../../lib/store';
 import { applyVoiceSettings, leaveCall, useCall, useMicLevel } from '../../lib/voice';
-import { audioConstraints, keyLabel, saveVoiceSettings, useVoiceSettings, type VoiceSettings } from '../../lib/voiceSettings';
+import { audioConstraints, deviceName, keyLabel, saveVoiceSettings, useVoiceSettings, type VoiceSettings } from '../../lib/voiceSettings';
 import { savePrefs, THEMES, usePrefs, type ServerNotify } from '../../lib/prefs';
 import { playMessage } from '../../lib/sounds';
 import { ProfileEditor } from './ProfileEditor';
@@ -275,14 +275,14 @@ function VoiceSettingsPanel() {
       <label>Microfone
         <select value={settings.inputDeviceId} onChange={(e) => update({ inputDeviceId: e.target.value })}>
           <option value="default">Padrão do sistema</option>
-          {inputs.map((d, i) => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microfone ${i + 1}`}</option>)}
+          {inputs.map((d, i) => <option key={d.deviceId} value={d.deviceId}>{d.label ? deviceName(d.label) : `Microfone ${i + 1}`}</option>)}
         </select>
       </label>
       {outputs.length > 0 && (
         <label>Saída de áudio
           <select value={settings.outputDeviceId} onChange={(e) => update({ outputDeviceId: e.target.value })}>
             <option value="default">Padrão do sistema</option>
-            {outputs.map((d, i) => <option key={d.deviceId} value={d.deviceId}>{d.label || `Alto-falante ${i + 1}`}</option>)}
+            {outputs.map((d, i) => <option key={d.deviceId} value={d.deviceId}>{d.label ? deviceName(d.label) : `Alto-falante ${i + 1}`}</option>)}
           </select>
         </label>
       )}

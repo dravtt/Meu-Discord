@@ -51,6 +51,11 @@ export function audioConstraints(s: VoiceSettings = useVoiceSettings.getState())
   };
 }
 
+/** Device label without the USB id Windows appends, e.g. "Microphone (HyperX Cloud III) (03f0:089d)" -> "Microphone (HyperX Cloud III)". */
+export function deviceName(label: string) {
+  return label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').trim() || label;
+}
+
 /** Human name for a KeyboardEvent.code, e.g. "KeyV" -> "V". */
 export function keyLabel(code: string) {
   if (code.startsWith('Key')) return code.slice(3);

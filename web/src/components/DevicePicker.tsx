@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronUp } from 'lucide-react';
 import { useClickOutside } from './ContextMenu';
 import { applyVoiceSettings } from '../lib/voice';
-import { saveVoiceSettings, useVoiceSettings } from '../lib/voiceSettings';
+import { deviceName, saveVoiceSettings, useVoiceSettings } from '../lib/voiceSettings';
 
 /** Small arrow beside the mic / headphone button that lists the connected devices and lets the user pick one. */
 export function DevicePicker({ kind }: { kind: 'input' | 'output' }) {
@@ -38,7 +38,7 @@ export function DevicePicker({ kind }: { kind: 'input' | 'output' }) {
         <div className="device-menu">
           <h4>{kind === 'input' ? 'Dispositivo de entrada' : 'Dispositivo de saída'}</h4>
           {row('default', 'Padrão do sistema')}
-          {list.map((d, i) => row(d.deviceId, d.label || `${fallback} ${i + 1}`))}
+          {list.map((d, i) => row(d.deviceId, d.label ? deviceName(d.label) : `${fallback} ${i + 1}`))}
           {list.length === 0 && <small className="muted">Nenhum dispositivo encontrado. Permita o microfone no navegador.</small>}
         </div>
       )}
