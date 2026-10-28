@@ -6,7 +6,7 @@ const path = require('node:path');
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
 const defaults = {
-  serverUrl: process.env.NEXO_URL || 'http://localhost:3001',
+  serverUrl: process.env.NEXO_URL || 'https://vokaapp.com.br',
   minimizeToTray: true,
   startMinimized: false,
   hardwareAcceleration: true,
