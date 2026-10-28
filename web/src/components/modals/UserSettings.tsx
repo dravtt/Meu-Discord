@@ -157,8 +157,14 @@ function AccountPanel({ onMsg }: { onMsg: (m: { ok: boolean; text: string } | nu
       <h3>Nome de usuário</h3>
       <p className="muted small">
         Atual: <strong>{me.username}</strong>. Dá para trocar a cada {COOLDOWN_DAYS} dias, e um nome que já é de outra pessoa fica indisponível.
-        {locked && <> Próxima troca liberada em <strong>{nextChange!.toLocaleDateString('pt-BR')}</strong>.</>}
       </p>
+      {locked && (
+        <p className="muted small">
+          Última alteração: <strong>{changedAt!.toLocaleDateString('pt-BR')}</strong>.<br />
+          Você poderá trocar de novo em <strong>{nextChange!.toLocaleDateString('pt-BR')}</strong>
+          {' '}(daqui a {Math.max(1, Math.ceil((nextChange!.getTime() - Date.now()) / 86400000))} {Math.ceil((nextChange!.getTime() - Date.now()) / 86400000) <= 1 ? 'dia' : 'dias'}).
+        </p>
+      )}
       <label>Novo nome de usuário<input value={username} maxLength={32} disabled={locked} onChange={(e) => setUsername(e.target.value.toLowerCase())} /></label>
       {username !== me.username && <label>Sua senha<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>}
       <button className="btn primary" disabled={locked || username === me.username || !password} onClick={() => void run(async () => {
