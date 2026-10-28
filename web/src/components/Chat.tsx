@@ -12,6 +12,7 @@ import { Avatar } from './Avatar';
 import { Composer } from './Composer';
 import { EmojiPicker } from './EmojiPicker';
 import { openModal, confirmDialog, Dialog, closeModal } from './Modal';
+import { openImageViewer } from './ImageViewer';
 import { ProfileCard } from './ProfileCard';
 import { userMenuProps } from './ContextMenu';
 import { NewGroupModal } from './modals/NewGroupModal';
@@ -257,7 +258,7 @@ function inviteCodes(text: string) {
 
 function AttachmentView({ a }: { a: Message['attachments'][number] }) {
   const url = assetUrl(a.url);
-  if (a.contentType.startsWith('image/')) return <a href={url} target="_blank" rel="noreferrer"><img className="attachment-img" src={url} alt={a.filename} /></a>;
+  if (a.contentType.startsWith('image/')) return <img className="attachment-img clickable" src={url} alt={a.filename} onClick={() => openImageViewer(url, a.filename)} />;
   if (a.contentType.startsWith('video/')) return <video className="attachment-img" src={url} controls />;
   if (a.contentType.startsWith('audio/')) return <audio src={url} controls />;
   return (
