@@ -37,6 +37,8 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
   const fullscreen = useFullscreenElement();
   const soundboard = useSoundboardOpen();
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  // True when the spotlight was picked by a click, so a screen ending does not take it away.
+  const manualFocus = useRef(false);
   const inThisCall = call.channelId === channelId;
   const others = Object.values(voiceStates).filter((v) => v.channelId === channelId);
   const canVideo = !channel?.serverId || has(channel?.permissions, P.VIDEO);
@@ -45,7 +47,13 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
   const screenKeys = call.tiles.filter((t) => t.screen).map((t) => t.key).join();
   useEffect(() => {
     const firstScreen = call.tiles.find((t) => t.screen && !t.local) ?? call.tiles.find((t) => t.screen);
-    setFocusKey((k) => (k && call.tiles.some((t) => t.key === k) ? k : firstScreen?.key ?? null));
+    setFocusKey((k) => {
+      const current = call.tiles.find((t) => t.key === k);
+      if (current && (current.screen || manualFocus.current)) return k;
+      // The shared screen ended (or its owner left): go back to the next screen, or to the grid.
+      manualFocus.current = false;
+      return firstScreen?.key ?? null;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenKeys]);
 
@@ -76,12 +84,12 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
         : call.ringing && <div className="call-status ringing">Chamando {channel?.type === 'dm' ? dmName(channel, me?.id) : 'o grupo'}…</div>}
       {focus ? (
         <div className="call-stage focused">
-          <CallTile tile={focus} big onFocus={() => setFocusKey(null)} />
-          {rest.length > 0 && <div className="call-strip">{rest.map((t) => <CallTile key={t.key} tile={t} onFocus={() => setFocusKey(t.key)} />)}</div>}
+          <CallTile tile={focus} big onFocus={() => { manualFocus.current = false; setFocusKey(null); }} />
+          {rest.length > 0 && <div className="call-strip">{rest.map((t) => <CallTile key={t.key} tile={t} onFocus={() => { manualFocus.current = true; setFocusKey(t.key); }} />)}</div>}
         </div>
       ) : (
         <div className="call-stage grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}>
-          {rest.map((t) => <CallTile key={t.key} tile={t} onFocus={() => setFocusKey(t.key)} />)}
+          {rest.map((t) => <CallTile key={t.key} tile={t} onFocus={() => { manualFocus.current = true; setFocusKey(t.key); }} />)}
         </div>
       )}
       <div className="call-controls">

@@ -24,7 +24,7 @@ const voiceStates = new Map<string, Map<string, VoiceState>>();
 
 /** How long a DM call rings before it counts as unanswered. */
 export const RING_MS = 30_000;
-interface Ring { channelId: string; callerId: string; recipients: string[]; declined: Set<string>; timer: NodeJS.Timeout }
+interface Ring { channelId: string; callerId: string; recipients: string[]; declined: Set<string>; answered: Set<string>; timer: NodeJS.Timeout }
 /** channelId -> ringing DM call. Starts when someone calls an empty DM, ends when anyone answers. */
 const rings = new Map<string, Ring>();
 
@@ -204,7 +204,7 @@ export function joinVoice(state: VoiceState) {
   states.set(state.userId, state);
   emitVoiceState(state, false);
   const ring = rings.get(state.channelId);
-  if (ring && state.userId !== ring.callerId) stopRing(ring, 'answered');
+  if (ring && ring.recipients.includes(state.userId)) answerRing(ring, state.userId);
 }
 
 export function leaveVoice(userId: string) {
@@ -230,7 +230,7 @@ const ringPayload = (r: Ring) => ({ channelId: r.channelId, callerId: r.callerId
 export function startRing(channelId: string, callerId: string, recipients: string[]) {
   const others = recipients.filter((id) => id !== callerId);
   if (rings.has(channelId) || !others.length) return false;
-  const ring: Ring = { channelId, callerId, recipients: others, declined: new Set(), timer: setTimeout(() => stopRing(ring, 'timeout'), RING_MS) };
+  const ring: Ring = { channelId, callerId, recipients: others, declined: new Set(), answered: new Set(), timer: setTimeout(() => stopRing(ring, 'timeout'), RING_MS) };
   rings.set(channelId, ring);
   for (const id of others) emitToUser(id, 'call:ring', ringPayload(ring));
   return true;
@@ -244,6 +244,22 @@ function stopRing(ring: Ring, reason: 'answered' | 'cancelled' | 'timeout' | 'de
   for (const id of [ring.callerId, ...ring.recipients]) emitToUser(id, 'call:stop', { channelId: ring.channelId, reason });
 }
 
+/**
+ * A callee joined. Their own devices stop ringing and the caller learns someone picked up, but in a
+ * group the others keep ringing so they can still join.
+ */
+function answerRing(ring: Ring, userId: string) {
+  ring.answered.add(userId);
+  emitToUser(userId, 'call:stop', { channelId: ring.channelId, reason: 'answered' });
+  emitToUser(ring.callerId, 'call:stop', { channelId: ring.channelId, reason: 'answered' });
+  endRingIfSettled(ring);
+}
+
+/** Nobody left to ring: everyone either answered or declined. */
+function endRingIfSettled(ring: Ring) {
+  if (ring.recipients.every((id) => ring.declined.has(id) || ring.answered.has(id))) stopRing(ring, ring.answered.size ? 'answered' : 'declined');
+}
+
 /** A callee turns the call down. Their other devices stop ringing; the caller is told. */
 export function declineRing(channelId: string, userId: string) {
   const ring = rings.get(channelId);
@@ -251,7 +267,7 @@ export function declineRing(channelId: string, userId: string) {
   ring.declined.add(userId);
   emitToUser(userId, 'call:stop', { channelId, reason: 'declined' });
   emitToUser(ring.callerId, 'call:declined', { channelId, userId });
-  if (ring.recipients.every((id) => ring.declined.has(id))) stopRing(ring, 'declined');
+  endRingIfSettled(ring);
 }
 
 /** The call a user is in right now, if any. */

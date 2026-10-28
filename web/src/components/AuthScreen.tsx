@@ -11,7 +11,7 @@ let notice: string | null | undefined;
 const loginNotice = () => (notice === undefined ? (notice = takeNotice()) : notice);
 
 export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -39,6 +39,8 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
     }
   }
 
+  if (mode === 'forgot') return <ForgotPassword initial={username} onBack={() => setMode('login')} />;
+
   return (
     <div className="auth">
       <form className="auth-card" onSubmit={submit}>
@@ -54,6 +56,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
         {mode === 'register' && <label>Confirmar senha<PasswordInput value={confirm} onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password" aria-invalid={!!confirm && confirm !== password} />
           {!!confirm && confirm !== password && <small className="field-hint bad">As senhas não são iguais.</small>}</label>}
         {mode === 'register' && <label>Data de nascimento<input type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} required max={new Date().toISOString().slice(0, 10)} /></label>}
+        {mode === 'login' && <button type="button" className="link small" style={{ alignSelf: 'flex-start' }} onClick={() => { setMode('forgot'); setError(null); }}>Esqueceu a senha?</button>}
         {error && <p className="error">{error}</p>}
         <button className="btn primary block" disabled={busy}>{mode === 'login' ? 'Entrar' : 'Continuar'}</button>
         <button type="button" className="link" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null); setConfirm(''); }}>
@@ -73,6 +76,64 @@ export function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
             ))}
           </div>
         )}
+      </form>
+    </div>
+  );
+}
+
+/** Two steps: ask for a code by e-mail, then type the code and a new password. */
+function ForgotPassword({ initial, onBack }: { initial: string; onBack: () => void }) {
+  const [step, setStep] = useState<'ask' | 'reset' | 'done'>('ask');
+  const [who, setWho] = useState(initial);
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function run(fn: () => Promise<void>) {
+    setBusy(true);
+    setMsg(null);
+    try { await fn(); } catch (e) { setMsg({ ok: false, text: e instanceof ApiError ? e.message : 'Erro inesperado' }); } finally { setBusy(false); }
+  }
+  const ask = () => run(async () => {
+    await api('/auth/forgot', { body: { username: who } });
+    setStep('reset');
+    setMsg({ ok: true, text: 'Se essa conta existir e tiver e-mail confirmado, o código já está a caminho. Olhe também o spam.' });
+  });
+
+  return (
+    <div className="auth">
+      <form className="auth-card" onSubmit={(e) => {
+        e.preventDefault();
+        if (step === 'ask') { void ask(); return; }
+        if (password !== confirm) { setMsg({ ok: false, text: 'As senhas não são iguais.' }); return; }
+        void run(async () => { await api('/auth/reset', { body: { username: who, code, password } }); setStep('done'); });
+      }}>
+        <Logo size={64} className="logo-mark" />
+        <h1>Recuperar senha</h1>
+        {step === 'done'
+          ? <>
+            <p className="ok">Senha alterada! Já pode entrar com a nova senha.</p>
+            <button type="button" className="btn primary block" onClick={onBack}>Ir para o login</button>
+          </>
+          : <>
+            <p className="muted">{step === 'ask' ? 'Digite seu usuário ou e-mail. Mandamos um código de 6 números para o e-mail da conta.' : 'Digite o código que chegou no e-mail e escolha a nova senha.'}</p>
+            <label>Nome de usuário ou e-mail<input value={who} onChange={(e) => setWho(e.target.value)} required autoFocus={step === 'ask'} autoComplete="username" readOnly={step === 'reset'} /></label>
+            {step === 'reset' && <>
+              <label>Código<input className="code-input" value={code} inputMode="numeric" maxLength={6} autoFocus autoComplete="one-time-code" placeholder="000000"
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} /></label>
+              <label>Nova senha<PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" /></label>
+              <label>Confirmar nova senha<PasswordInput value={confirm} onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password" aria-invalid={!!confirm && confirm !== password} />
+                {!!confirm && confirm !== password && <small className="field-hint bad">As senhas não são iguais.</small>}</label>
+            </>}
+            {msg && <p className={msg.ok ? 'ok' : 'error'}>{msg.text}</p>}
+            <button className="btn primary block" disabled={busy || (step === 'reset' && code.length !== 6)}>{step === 'ask' ? 'Enviar código' : 'Trocar senha'}</button>
+            <div className="auth-links">
+              {step === 'reset' && <button type="button" className="link" disabled={busy} onClick={() => void ask()}>Reenviar código</button>}
+              <button type="button" className="link" onClick={onBack}>Voltar ao login</button>
+            </div>
+          </>}
       </form>
     </div>
   );

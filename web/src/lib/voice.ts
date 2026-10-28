@@ -182,6 +182,10 @@ export async function joinCall(channelId: string) {
       .on(RoomEvent.TrackMuted, syncTiles)
       .on(RoomEvent.TrackUnmuted, syncTiles)
       .on(RoomEvent.LocalTrackUnpublished, () => { useCall.setState({ screen: !!room?.localParticipant.isScreenShareEnabled }); sendState(); syncTiles(); })
+      // After a network drop LiveKit swaps the connection; rebuild the tiles so no one keeps a frozen picture.
+      .on(RoomEvent.Reconnected, () => { syncTiles(); sendState(); })
+      .on(RoomEvent.TrackSubscriptionFailed, () => syncTiles())
+      .on(RoomEvent.TrackStreamStateChanged, syncTiles)
       .on(RoomEvent.Disconnected, () => { if (room && !unloading) void leaveCall(); });
     await room.connect(url, token);
     useCall.setState({ connecting: false });
@@ -272,24 +276,38 @@ const SCREEN_BITRATE: Record<ScreenQuality, number> = { '720': 2_500_000, '1080'
 
 /** Starts sharing with the chosen quality. The browser (or the desktop app) asks which screen. */
 export async function startScreen(o: ScreenOptions) {
-  if (!room) return;
+  if (!room || screenStarting || room.localParticipant.isScreenShareEnabled) return;
+  screenStarting = true;
   try {
     await room.localParticipant.setScreenShareEnabled(true, {
       audio: o.audio,
       systemAudio: o.audio ? 'include' : 'exclude',
+      // Keeps the voices of the call out of the shared sound, so nobody hears an echo of themselves.
+      suppressLocalAudioPlayback: true,
       resolution: { ...SCREEN_SIZE[o.quality], frameRate: o.fps },
-      // Games and video look smoother as "motion"; text and code stay sharp as "detail".
-      contentHint: o.fps >= 60 ? 'motion' : 'detail',
+      // "detail" holds the sharpness by dropping frames when the internet is slow, which looks like
+      // a freeze. Anything above 15 FPS therefore prefers smooth motion.
+      contentHint: o.fps >= 30 ? 'motion' : 'detail',
       selfBrowserSurface: 'exclude',
       surfaceSwitching: 'include',
     }, {
       screenShareEncoding: { maxBitrate: Math.round(SCREEN_BITRATE[o.quality] * (o.fps >= 60 ? 1.5 : 1)), maxFramerate: o.fps },
     });
-    useCall.setState({ screen: true });
-  } catch { /* user cancelled the picker */ }
+  } catch (err) {
+    // Closing the picker is not an error; anything else (no permission, capture failed) is shown.
+    const name = (err as Error)?.name;
+    if (name !== 'NotAllowedError' && name !== 'AbortError') {
+      useCall.setState({ error: 'Não foi possível transmitir a tela. Tente de novo.' });
+    }
+  } finally {
+    screenStarting = false;
+  }
+  useCall.setState({ screen: !!room?.localParticipant.isScreenShareEnabled });
   sendState();
   syncTiles();
 }
+
+let screenStarting = false;
 
 export async function stopScreen() {
   if (!room) return;

@@ -919,3 +919,13 @@ kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; background: v
 .invite-embed-btn.joined { background: var(--bg-3); color: var(--text); }
 .nsfw-tag { font-size: 11px; font-weight: 700; background: #f04446; color: #fff; padding: 1px 6px; border-radius: 6px; }
 .invite-local-warning { font-size: 13px; background: rgba(245, 184, 46, .12); border: 1px solid rgba(245, 184, 46, .4); color: var(--text); padding: 10px 12px; border-radius: 8px; }
+
+.device-picker { position: relative; display: inline-flex; margin-left: -4px; }
+.device-arrow { width: 16px; height: 32px; display: grid; place-items: center; color: var(--text-2); border-radius: 4px; }
+.device-arrow:hover { background: var(--bg-3); color: var(--text); }
+.device-menu { position: absolute; bottom: calc(100% + 8px); left: -40px; width: 260px; max-width: 80vw; background: var(--bg-3); border-radius: 8px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 50; display: flex; flex-direction: column; gap: 2px; }
+.device-menu h4 { margin: 4px 8px 6px; font-size: 11px; text-transform: uppercase; color: var(--text-2); }
+.device-menu button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; border-radius: 4px; text-align: left; color: var(--text); font-size: 13px; }
+.device-menu button:hover { background: var(--bg-2, rgba(255,255,255,.08)); }
+.device-menu button.active { color: var(--accent); }
+.device-menu small { padding: 6px 8px; }

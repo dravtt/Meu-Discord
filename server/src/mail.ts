@@ -42,3 +42,21 @@ export async function sendLoginAlert(to: string, name: string, info: { tries: nu
       <p>Se foi você, pode ignorar. Se não foi, troque sua senha em <b>Configurações &gt; Minha conta</b> e não passe sua senha para ninguém.</p></div>`,
   });
 }
+
+/** Sends the 6-digit code used to choose a new password. */
+export async function sendPasswordResetCode(to: string, name: string, code: string) {
+  if (!transport) {
+    console.log(`\n[Voka] Código para redefinir a senha de ${to}: ${code}  (configure SMTP_URL no server/.env para mandar por e-mail)\n`);
+    return;
+  }
+  await transport.sendMail({
+    from: config.mailFrom,
+    to,
+    subject: `${code} é o código para redefinir sua senha do Voka`,
+    text: `Oi, ${name}!\n\nSeu código para redefinir a senha do Voka é: ${code}\n\nEle vale por 15 minutos. Se não foi você que pediu, ignore este e-mail: sua senha continua a mesma.`,
+    html: `<div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:24px;background:#0d0b14;color:#eee;border-radius:16px">
+      <h2 style="color:#a78bfa;margin:0 0 12px">Voka</h2><p>Oi, ${esc(name)}!</p><p>Seu código para redefinir a senha:</p>
+      <p style="font-size:32px;letter-spacing:8px;font-weight:bold;background:#1c1530;padding:14px;border-radius:10px;text-align:center">${code}</p>
+      <p style="color:#999;font-size:13px">Ele vale por 15 minutos. Se não foi você que pediu, ignore este e-mail: sua senha continua a mesma.</p></div>`,
+  });
+}

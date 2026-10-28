@@ -6,11 +6,11 @@ import { markVerified, requireAuth, signToken, uid } from '../auth.js';
 import { HttpError, notFound } from '../errors.js';
 import { USER_COLUMNS, publicUser, type UserRow } from '../serializers.js';
 import { broadcastPresence, broadcastUserUpdate } from '../realtime.js';
-import { randomInt } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import { config } from '../config.js';
 import { ageOn, assertDeliverableEmail, clearLimit, rateLimit } from '../guard.js';
 import { isAdmin } from './moderation.js';
-import { sendLoginAlert, sendVerificationCode } from '../mail.js';
+import { sendLoginAlert, sendPasswordResetCode, sendVerificationCode } from '../mail.js';
 
 export const authRouter = Router();
 
@@ -66,6 +66,47 @@ authRouter.post('/auth/login', async (req, res) => {
 });
 
 const LOGIN_ALERT_AFTER = 10;
+
+/* ---------- password recovery ---------- */
+
+const hashCode = (code: string) => createHash('sha256').update(code).digest('hex');
+
+/** Always answers the same way, so nobody can use it to find out which e-mails have an account. */
+authRouter.post('/auth/forgot', async (req, res) => {
+  const body = z.object({ username: z.string().trim().toLowerCase().min(1).max(254) }).parse(req.body);
+  rateLimit(`forgot-ip:${req.ip}`, 10, 60 * 60 * 1000, 'Muitos pedidos. Tente de novo mais tarde.');
+  rateLimit(`forgot:${body.username}`, 3, 60 * 60 * 1000, 'Você já pediu códigos demais. Espere um pouco e tente de novo.');
+  const user = await one<{ id: string; email: string | null; email_verified: boolean; display_name: string; banned_at: Date | null }>(
+    'SELECT id, email, email_verified, display_name, banned_at FROM users WHERE username = $1 OR lower(email) = $1', [body.username]);
+  if (user?.email && user.email_verified && !user.banned_at) {
+    const code = newCode();
+    await one('UPDATE users SET reset_code_hash = $2, reset_code_expires = now() + $3::interval, reset_code_tries = 0 WHERE id = $1',
+      [user.id, hashCode(code), `${CODE_TTL_MS / 1000} seconds`]);
+    await sendPasswordResetCode(user.email, user.display_name, code).catch((e) => console.error('reset mail failed', e));
+  }
+  res.json({ ok: true });
+});
+
+authRouter.post('/auth/reset', async (req, res) => {
+  const body = z.object({
+    username: z.string().trim().toLowerCase().min(1).max(254),
+    code: z.string().trim().regex(/^\d{6}$/, 'O código tem 6 números'),
+    password,
+  }).parse(req.body);
+  rateLimit(`reset-ip:${req.ip}`, 20, 60 * 60 * 1000, 'Muitas tentativas. Tente de novo mais tarde.');
+  const bad = new HttpError(400, 'Código inválido ou expirado. Peça um novo.');
+  const u = await one<{ id: string; reset_code_hash: string | null; reset_code_expires: Date | null; reset_code_tries: number }>(
+    'SELECT id, reset_code_hash, reset_code_expires, reset_code_tries FROM users WHERE username = $1 OR lower(email) = $1', [body.username]);
+  if (!u || !u.reset_code_hash || !u.reset_code_expires || u.reset_code_expires < new Date()) throw bad;
+  if (u.reset_code_tries >= 5) throw new HttpError(429, 'Muitas tentativas. Peça um código novo.');
+  if (u.reset_code_hash !== hashCode(body.code)) {
+    await one('UPDATE users SET reset_code_tries = reset_code_tries + 1 WHERE id = $1', [u.id]);
+    throw bad;
+  }
+  await one(`UPDATE users SET password_hash = $2, reset_code_hash = NULL, reset_code_expires = NULL, reset_code_tries = 0,
+    failed_logins = 0, failed_login_since = NULL WHERE id = $1`, [u.id, await bcrypt.hash(body.password, 10)]);
+  res.json({ ok: true });
+});
 
 /** Counts wrong passwords in the last hour; at 10, e-mails the owner (at most once an hour). */
 async function failedLogin(userId: string, ip: string) {

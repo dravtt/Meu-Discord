@@ -21,6 +21,23 @@ describe('auth', () => {
     expect(ok.body.user.username).toBe('ana');
   });
 
+  it('recovers a forgotten password with an e-mailed code', async () => {
+    const { createHash } = await import('node:crypto');
+    const { pool } = await import('../src/db.js');
+    const ghost = await api().post('/api/auth/forgot').send({ username: 'ninguem-existe' }).expect(200);
+    expect(ghost.body).toEqual({ ok: true });
+    await api().post('/api/auth/forgot').send({ username: 'caio@teste.com.br' }).expect(200);
+    const row = await pool.query('SELECT reset_code_hash FROM users WHERE username = $1', ['caio']);
+    expect(row.rows[0].reset_code_hash).toBeTruthy();
+    await api().post('/api/auth/reset').send({ username: 'caio', code: '000000', password: 'nova-senha-123' }).expect(400);
+    await pool.query('UPDATE users SET reset_code_hash = $2 WHERE username = $1', ['caio', createHash('sha256').update('123456').digest('hex')]);
+    await api().post('/api/auth/reset').send({ username: 'caio', code: '123456', password: 'curta' }).expect(400);
+    await api().post('/api/auth/reset').send({ username: 'caio', code: '123456', password: 'nova-senha-123' }).expect(200);
+    await api().post('/api/auth/reset').send({ username: 'caio', code: '123456', password: 'outra-senha-123' }).expect(400);
+    await api().post('/api/auth/login').send({ username: 'caio', password: 'senha-forte-123' }).expect(401);
+    await api().post('/api/auth/login').send({ username: 'caio', password: 'nova-senha-123' }).expect(200);
+  });
+
   it('requires a token and updates the profile', async () => {
     await api().get('/api/users/@me').expect(401);
     const res = await api().patch('/api/users/@me').set(auth(ana)).send({ displayName: 'Ana', customStatus: 'codando' }).expect(200);
@@ -312,6 +329,34 @@ describe('presence and voice', () => {
 
     anaSocket.close();
     biaSocket.close();
+  });
+
+  it('keeps ringing the rest of a group when one person answers', async () => {
+    // Group DMs only take friends, and Ana has blocked Caio by now: use a fresh friend instead.
+    const hugo = await register('hugo');
+    await api().post('/api/relationships').set(auth(ana)).send({ username: 'hugo' }).expect(200);
+    await api().put(`/api/relationships/${ana.id}`).set(auth(hugo)).expect(200);
+    const group = (await api().post('/api/dms').set(auth(ana)).send({ userIds: [bia.id, hugo.id] }).expect(201)).body;
+    const caio = hugo;
+    const [anaSocket, biaSocket, caioSocket] = await Promise.all([connect(ana), connect(bia), connect(caio)]);
+    const rings = Promise.all([nextEvent(biaSocket, 'call:ring'), nextEvent(caioSocket, 'call:ring')]);
+    await api().post(`/api/channels/${group.id}/voice`).set(auth(ana)).expect(200);
+    await rings;
+
+    // Bia picks up: Caio's phone must keep ringing.
+    const stillRinging = noEvent(caioSocket, 'call:stop');
+    const callerTold = nextEvent(anaSocket, 'call:stop');
+    await api().post(`/api/channels/${group.id}/voice`).set(auth(bia)).expect(200);
+    expect(await callerTold).toMatchObject({ reason: 'answered' });
+    expect(await stillRinging).toBe(true);
+
+    // Caio joins late and the ringing is over.
+    const done = nextEvent(caioSocket, 'call:stop');
+    await api().post(`/api/channels/${group.id}/voice`).set(auth(caio)).expect(200);
+    expect(await done).toMatchObject({ reason: 'answered' });
+
+    for (const u of [caio, bia, ana]) await api().delete('/api/voice').set(auth(u)).expect(204);
+    [anaSocket, biaSocket, caioSocket].forEach((s) => s.close());
   });
 });
 

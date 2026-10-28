@@ -14,6 +14,7 @@ import { UserSettings } from './modals/UserSettings';
 import { StyledName } from '../lib/nameStyle';
 import { ProfileCard, ProfileView } from './ProfileCard';
 import { BadgesDialog } from './Badges';
+import { DevicePicker } from './DevicePicker';
 import { addAccount, savedAccounts, switchTo } from '../lib/accounts';
 
 const STATUS_HINT: Record<string, string> = {
@@ -102,7 +103,9 @@ export function UserPanel() {
       </button>
       </div>
       <button className={`icon-btn ${muted ? 'off' : ''}`} title={muted ? 'Ativar microfone' : 'Silenciar'} onClick={toggleMute}>{muted ? <MicOff size={18} /> : <Mic size={18} />}</button>
+      <DevicePicker kind="input" />
       <button className={`icon-btn ${deafened ? 'off' : ''}`} title={deafened ? 'Ativar áudio' : 'Desativar áudio'} onClick={toggleDeafen}>{deafened ? <HeadphoneOff size={18} /> : <Headphones size={18} />}</button>
+      <DevicePicker kind="output" />
       <button className="icon-btn" title="Configurações" onClick={() => openModal(<UserSettings />)}><Settings size={18} /></button>
     </div>
   );
