@@ -204,7 +204,7 @@ voka ALL=(root) NOPASSWD: /usr/bin/bash /opt/voka/deploy/atualizar.sh, /usr/bin/
 S
 sudo chmod 440 /etc/sudoers.d/voka && sudo visudo -cf /etc/sudoers.d/voka
 ```
-Depois, de outro computador: `ssh -t voka@IP "sudo bash /opt/voka/deploy/atualizar.sh"`. Para desfazer o acesso: `sudo deluser --remove-home voka && sudo rm /etc/sudoers.d/voka`.
+Na TOWER a porta SSH é a **22022** (confira com `grep -i ^Port /etc/ssh/sshd_config` ou no painel da HostGator). Depois, de outro computador: `ssh -t -p 22022 voka@IP "sudo bash /opt/voka/deploy/atualizar.sh"`. Para desfazer o acesso: `sudo deluser --remove-home voka && sudo rm /etc/sudoers.d/voka`.
 Atenção: o `atualizar.sh` roda como root o código que estiver no GitHub. Quem controla o repositório controla o que roda no servidor, então proteja a conta do GitHub (senha forte e verificação em duas etapas).
 
 ## Rollback
