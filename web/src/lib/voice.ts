@@ -94,7 +94,9 @@ usePrefs.subscribe((p, prev) => { if (p.userVolume !== prev.userVolume || p.user
 
 function visible(p: Participant, source: Track.Source) {
   const pub = p.getTrackPublication(source);
-  return pub && !pub.isMuted ? pub.track : undefined;
+  // A remote publication can outlive the sharer's stream for a moment: an ended track stays a black tile.
+  if (!pub || pub.isMuted || pub.track?.mediaStreamTrack.readyState === 'ended') return undefined;
+  return pub.track;
 }
 
 function syncTiles() {
@@ -175,7 +177,10 @@ export async function joinCall(channelId: string) {
         audioWatchers.delete(key);
         track.detach();
         syncTiles();
+        // LiveKit drops the publication right after this event, so look again once it is gone.
+        setTimeout(syncTiles, 0);
       })
+      .on(RoomEvent.TrackUnpublished, syncTiles)
       .on(RoomEvent.ParticipantConnected, () => { if (useCall.getState().ringing) setRinging(false); playJoin(); syncTiles(); })
       .on(RoomEvent.ParticipantDisconnected, (p: RemoteParticipant) => { setSpeaking(p.identity, false); playLeave(); syncTiles(); })
       .on(RoomEvent.LocalTrackPublished, (pub) => { if (pub.source === Track.Source.Microphone) void attachGate(); syncTiles(); })
