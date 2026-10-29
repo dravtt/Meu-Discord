@@ -192,6 +192,21 @@ O script faz o seguinte:
 3. constrói a nova versão com o teto do build e reinicia **só** o `voka-app`;
 4. espera ficar saudável e roda os testes. Se falhar, termina com erro e mostra o comando de rollback.
 
+## Atualizar de longe (usuário `voka`, só com os scripts do Voka)
+Para atualizar sem sentar no servidor, o administrador cria **uma vez** um usuário `voka` sem senha, entra só com chave SSH, e `sudo` limitado aos scripts do Voka. Esse usuário não é administrador geral da VPS.
+```bash
+sudo adduser --disabled-password --gecos "" voka
+sudo install -d -m 700 -o voka -g voka /home/voka/.ssh
+echo 'COLE_AQUI_A_CHAVE_PUBLICA' | sudo tee /home/voka/.ssh/authorized_keys
+sudo chown voka:voka /home/voka/.ssh/authorized_keys && sudo chmod 600 /home/voka/.ssh/authorized_keys
+sudo tee /etc/sudoers.d/voka >/dev/null <<'S'
+voka ALL=(root) NOPASSWD: /usr/bin/bash /opt/voka/deploy/atualizar.sh, /usr/bin/bash /opt/voka/deploy/rollback.sh, /usr/bin/bash /opt/voka/deploy/rollback.sh --manter-banco, /usr/bin/bash /opt/voka/deploy/smoke-test.sh
+S
+sudo chmod 440 /etc/sudoers.d/voka && sudo visudo -cf /etc/sudoers.d/voka
+```
+Depois, de outro computador: `ssh -t voka@IP "sudo bash /opt/voka/deploy/atualizar.sh"`. Para desfazer o acesso: `sudo deluser --remove-home voka && sudo rm /etc/sudoers.d/voka`.
+Atenção: o `atualizar.sh` roda como root o código que estiver no GitHub. Quem controla o repositório controla o que roda no servidor, então proteja a conta do GitHub (senha forte e verificação em duas etapas).
+
 ## Rollback
 ```bash
 sudo bash deploy/rollback.sh                  # programa anterior + banco do backup feito antes da atualização
