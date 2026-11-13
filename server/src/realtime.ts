@@ -1,5 +1,6 @@
 import type { Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
+import { RoomServiceClient } from 'livekit-server-sdk';
 import { config } from './config.js';
 import { query, one } from './db.js';
 import { bannedReason, verifyToken } from './auth.js';
@@ -197,8 +198,37 @@ function emitVoiceState(state: VoiceState, left: boolean) {
   else void getChannel(state.channelId).then((c) => emitToChannel(c, 'voice:state', payload)).catch(() => {});
 }
 
+/** When each person joined and how many sweeps in a row found them missing from LiveKit. */
+const voiceSeen = new Map<string, { since: number; misses: number }>();
+const SWEEP_MS = Number(process.env.VOKA_VOICE_SWEEP_MS ?? 30_000);
+
+/**
+ * A closed laptop, a dropped connection or a second open tab can leave someone listed in a call they are
+ * not in any more. LiveKit knows who is really connected, so every sweep drops listed people it cannot see
+ * (twice in a row, and not while they are still connecting).
+ */
+export async function sweepVoice(graceMs = SWEEP_MS) {
+  const rooms = new RoomServiceClient(config.livekit.apiUrl, config.livekit.apiKey, config.livekit.apiSecret);
+  for (const [channelId, states] of [...voiceStates]) {
+    let present: Set<string>;
+    try {
+      present = new Set((await rooms.listParticipants(channelId)).map((p) => p.identity));
+    } catch { continue; } // LiveKit unreachable: say nothing rather than kick people out of a working call
+    for (const userId of [...states.keys()]) {
+      const key = `${channelId}:${userId}`;
+      const seen = voiceSeen.get(key);
+      if (!seen) continue;
+      if (present.has(userId)) { seen.misses = 0; continue; }
+      if (Date.now() - seen.since < graceMs) continue;
+      if (++seen.misses >= 2) leaveVoice(userId);
+    }
+  }
+}
+setInterval(() => { void sweepVoice().catch(() => {}); }, SWEEP_MS).unref();
+
 export function joinVoice(state: VoiceState) {
   leaveVoice(state.userId);
+  voiceSeen.set(`${state.channelId}:${state.userId}`, { since: Date.now(), misses: 0 });
   let states = voiceStates.get(state.channelId);
   if (!states) voiceStates.set(state.channelId, (states = new Map()));
   states.set(state.userId, state);
@@ -212,6 +242,7 @@ export function leaveVoice(userId: string) {
     const state = states.get(userId);
     if (!state) continue;
     states.delete(userId);
+    voiceSeen.delete(`${channelId}:${userId}`);
     if (states.size === 0) {
       voiceStates.delete(channelId);
       const ring = rings.get(channelId);

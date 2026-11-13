@@ -71,7 +71,8 @@ messagesRouter.post('/channels/:channelId/messages', upload.array('files', 10), 
   }).parse(req.body);
   const files = (req.files as Express.Multer.File[] | undefined) ?? [];
   if (files.length && !has(perms, P.ATTACH_FILES)) throw forbidden('Sem permissão para enviar arquivos');
-  const content = body.content.trim();
+  // Browsers send line breaks in form fields as CRLF; store plain LF like every other text.
+  const content = body.content.replace(/\r\n?/g, '\n').trim();
   if (!content && files.length === 0) throw badRequest('Mensagem vazia');
   // Antispam: at most 8 messages every 5 seconds, and no flooding the same text.
   await assertNotMuted(uid(req));

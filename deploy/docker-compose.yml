@@ -32,6 +32,7 @@ services:
       WEB_ORIGIN: https://${VOKA_DOMAIN}
       PUBLIC_URL: https://${VOKA_DOMAIN}
       LIVEKIT_URL: wss://${VOKA_DOMAIN}
+      LIVEKIT_API_URL: http://voka-livekit:7880
       # Requests come from the reverse proxy on this VPS (via the Docker bridge gateway).
       TRUST_PROXY: loopback, uniquelocal
     networks: [voka_net]

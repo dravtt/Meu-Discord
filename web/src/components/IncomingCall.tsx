@@ -12,6 +12,8 @@ export function IncomingCall() {
   const notice = useCall((s) => s.notice);
   const dnd = useStore((s) => s.me?.status === 'dnd');
   useStore((s) => s.dms);
+  // When that conversation is already open, the call area shows the Accept / Decline buttons instead.
+  const viewingIt = useStore((s) => !!incoming && s.view.kind === 'home' && s.view.dmId === incoming.channelId);
   const channel = incoming ? findChannel(incoming.channelId) : undefined;
   const caller = channel?.recipients?.find((u) => u.id === incoming?.callerId);
 
@@ -35,7 +37,7 @@ export function IncomingCall() {
 
   return (
     <>
-      {incoming && (
+      {incoming && !viewingIt && (
         <div className="incoming-call" role="alertdialog" aria-label="Chamada recebida">
           <div className="incoming-avatar">
             {caller ? <Avatar user={caller} size={88} /> : <span className="group-icon big">{channel?.recipients?.length ?? ''}</span>}

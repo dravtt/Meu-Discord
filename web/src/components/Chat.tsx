@@ -1,5 +1,5 @@
 import { AtSign, Flag, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X, UserPlus, UserMinus, Image as ImageIcon } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore, set, get, dmName, memberName, memberColor, findChannel } from '../lib/store';
 import { api, assetUrl } from '../lib/api';
 import { has, P } from '../lib/permissions';
@@ -24,7 +24,9 @@ import { INVITE_URL, InviteEmbed } from './modals/ServerModals';
 const EMPTY: Message[] = [];
 
 export function Chat({ channel, isThread, onClose }: { channel: Channel; isThread?: boolean; onClose?: () => void }) {
-  const messages = useStore((s) => s.messages[channel.id] ?? EMPTY);
+  const allMessages = useStore((s) => s.messages[channel.id] ?? EMPTY);
+  // Safety net: never show a message that belongs to another conversation.
+  const messages = useMemo(() => (allMessages.some((m) => m.channelId !== channel.id) ? allMessages.filter((m) => m.channelId === channel.id) : allMessages), [allMessages, channel.id]);
   const loaded = useStore((s) => channel.id in s.messages);
   const hasMore = useStore((s) => s.hasMore[channel.id] ?? false);
   const me = useStore((s) => s.me);

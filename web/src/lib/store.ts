@@ -99,7 +99,8 @@ export function addMessage(message: Message) {
     const list = s.messages[message.channelId];
     if (!list) return {};
     // Replace an optimistic copy or a duplicate.
-    const filtered = list.filter((m) => m.id !== message.id && !(m.pending && m.author.id === message.author.id && m.content === message.content));
+    const same = (text: string) => text.replace(/\r\n?/g, '\n').trim();
+    const filtered = list.filter((m) => m.id !== message.id && !(m.pending && m.author.id === message.author.id && same(m.content) === same(message.content)));
     return { messages: { ...s.messages, [message.channelId]: [...filtered, message] } };
   });
 }

@@ -15,6 +15,8 @@ export const config = {
     url: process.env.LIVEKIT_URL ?? 'ws://localhost:7880',
     apiKey: process.env.LIVEKIT_API_KEY ?? 'devkey',
     apiSecret: process.env.LIVEKIT_API_SECRET ?? 'secret',
+    /** Where this server asks LiveKit who is really in a room (inside Docker: http://voka-livekit:7880). */
+    apiUrl: process.env.LIVEKIT_API_URL ?? (process.env.LIVEKIT_URL ?? 'ws://localhost:7880').replace(/^ws/, 'http'),
   },
   /** Address friends use (e.g. https://voka.app.br). Invite links use it; if empty, the last public address seen (a tunnel). */
   publicUrl: (process.env.PUBLIC_URL ?? '').replace(/\/+$/, ''),

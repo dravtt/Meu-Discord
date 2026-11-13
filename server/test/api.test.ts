@@ -292,6 +292,22 @@ describe('presence and voice', () => {
     anaSocket.close();
   });
 
+  it('drops people who are listed in a call but not really in it (needs LiveKit running)', async () => {
+    const { RoomServiceClient } = await import('livekit-server-sdk');
+    const { config } = await import('../src/config.js');
+    const { sweepVoice } = await import('../src/realtime.js');
+    const rooms = new RoomServiceClient(config.livekit.apiUrl, config.livekit.apiKey, config.livekit.apiSecret);
+    if (!(await rooms.listRooms().then(() => true, () => false))) return; // no LiveKit here: the sweep leaves everyone alone, nothing to prove
+    const anaSocket = await connect(ana);
+    await api().post(`/api/channels/${voiceId}/voice`).set(auth(bia)).expect(200); // token issued, never connected
+    await new Promise((r) => setTimeout(r, 30));
+    const left = nextEvent(anaSocket, 'voice:state', 3000);
+    await sweepVoice(10);
+    await sweepVoice(10);
+    expect(await left).toMatchObject({ userId: bia.id, channelId: voiceId, left: true });
+    anaSocket.close();
+  });
+
   it('rings the other person in a DM call until they answer, decline or the caller hangs up', async () => {
     const dm = (await api().post('/api/dms').set(auth(ana)).send({ userIds: [bia.id] })).body;
     const [anaSocket, biaSocket] = await Promise.all([connect(ana), connect(bia)]);

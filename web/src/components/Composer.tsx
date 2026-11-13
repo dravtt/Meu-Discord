@@ -87,6 +87,8 @@ export function Composer({ channel, canAttach, placeholder }: { channel: Channel
     if (files.length === 0) addMessage(optimistic);
     try {
       const saved = await api<Message>(`/channels/${channel.id}/messages`, { form });
+      // The grey copy always goes, even if the server changed the text a little; the saved one replaces it.
+      set((s) => ({ messages: { ...s.messages, [channel.id]: (s.messages[channel.id] ?? []).filter((m) => m.id !== optimistic.id) } }));
       addMessage(saved);
     } catch (err) {
       setError((err as Error).message);
