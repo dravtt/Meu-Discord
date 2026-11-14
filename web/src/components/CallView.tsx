@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Headphones, HeadphoneOff, Maximize2, Mic, PartyPopper, MicOff, Minimize2, Monitor, MonitorOff, MonitorUp, PhoneOff, Video, VideoOff, Volume2 } from 'lucide-react';
 import type { Track } from 'livekit-client';
 import { useStore, useUser, findChannel, dmName } from '../lib/store';
-import { joinCall, leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall, type Tile } from '../lib/voice';
+import { joinCall, leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall, watchStream, type Tile } from '../lib/voice';
 import { has, P } from '../lib/permissions';
 import { useSpeaking } from '../lib/speaking';
 import { openScreenShare } from './ScreenShareModal';
@@ -125,17 +125,24 @@ function CallTile({ tile, big, onFocus }: { tile: Tile; big?: boolean; onFocus: 
   const bubble = useSoundBubbles((s) => s[tile.identity]);
   const channelServer = useStore((s) => (s.voiceStates[tile.identity]?.serverId ?? null));
   const ref = useRef<HTMLDivElement>(null);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(clickTimer.current), []);
   const fullscreen = useFullscreenElement();
   const isFull = !!fullscreen && fullscreen === ref.current;
   const main = tile.screen ?? tile.camera;
   const isScreen = !!tile.screen;
+  // Someone else is sharing and we have not chosen to watch yet: their box stays a normal profile box.
+  const offer = !!tile.streaming && !tile.screen && !tile.local;
+  const watching = isScreen && !tile.local;
   const known = useUser(tile.identity);
   const person = { id: tile.identity, displayName: known?.displayName ?? tile.name, avatarUrl: known?.avatarUrl ?? null };
 
   return (
     <div ref={ref} className={`call-tile ${isScreen ? 'screen' : ''} ${speaking ? 'speaking' : ''} ${big ? 'big' : ''}`}
       data-identity={tile.identity} {...userMenuProps(tile.identity, channelServer)}
-      onClick={onFocus} onDoubleClick={() => toggleFullscreen(ref.current)}
+      // A double click means fullscreen, so the single-click action (spotlight) waits a moment to see if a second click follows.
+      onClick={() => { clearTimeout(clickTimer.current); clickTimer.current = setTimeout(onFocus, 250); }}
+      onDoubleClick={() => { clearTimeout(clickTimer.current); toggleFullscreen(ref.current); }}
       title={big ? 'Clique para voltar à grade, clique duas vezes para tela cheia' : 'Clique para destacar, clique duas vezes para tela cheia'}>
       {main
         ? <VideoEl track={main} fit={isScreen ? 'contain' : 'cover'} mirror={tile.local && !isScreen} />
@@ -152,7 +159,17 @@ function CallTile({ tile, big, onFocus }: { tile: Tile; big?: boolean; onFocus: 
         {tile.name}
         {voice?.deafened ? <HeadphoneOff size={14} className="tile-flag" /> : voice?.muted ? <MicOff size={14} className="tile-flag" /> : null}
       </span>
-      {isScreen && <span className="live tile-live">AO VIVO</span>}
+      {(isScreen || offer) && <span className="live tile-live">AO VIVO</span>}
+      {offer && (
+        <button className="btn small primary tile-watch" onClick={(e) => { e.stopPropagation(); watchStream(tile.identity, true); }}>
+          <Monitor size={14} /> Assistir transmissão
+        </button>
+      )}
+      {watching && (
+        <button className="btn small tile-unwatch" title="Parar de assistir" onClick={(e) => { e.stopPropagation(); watchStream(tile.identity, false); }}>
+          <MonitorOff size={14} /> Parar de assistir
+        </button>
+      )}
       {bubble && <span key={bubble.at} className="sound-bubble" title={bubble.name}>{bubble.emoji}</span>}
       <button className="tile-full" title={isFull ? 'Sair da tela cheia' : 'Tela cheia'} onClick={(e) => { e.stopPropagation(); toggleFullscreen(ref.current); }}>
         {isFull ? <Minimize2 size={16} /> : <Maximize2 size={16} />}

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AudioPresets, LocalAudioTrack, Room, RoomEvent, ScreenSharePresets, Track, VideoPresets, type Participant, type RemoteParticipant } from 'livekit-client';
+import { AudioPresets, LocalAudioTrack, Room, RoomEvent, ScreenSharePresets, Track, VideoPresets, type Participant, type RemoteParticipant, type RemoteTrackPublication } from 'livekit-client';
 import { api } from './api';
 import { socket } from './socket';
 import { audioConstraints, useVoiceSettings } from './voiceSettings';
@@ -14,7 +14,43 @@ import { unloading } from './session';
  * One box in the call grid per person. When they share their screen, the screen fills their box
  * (their camera, if on, shows small in a corner).
  */
-export interface Tile { key: string; identity: string; name: string; local: boolean; camera?: Track; screen?: Track }
+export interface Tile {
+  key: string; identity: string; name: string; local: boolean; camera?: Track; screen?: Track;
+  /** The person is sharing their screen. For others the picture only arrives after we choose to watch. */
+  streaming?: boolean;
+}
+
+/** Whose shared screen we chose to watch (by identity). Nobody's, until we click "Assistir transmissão". */
+export const useWatching = create<Record<string, boolean>>(() => ({}));
+
+/** Starts or stops watching someone's shared screen; stopping also stops the download. */
+export function watchStream(identity: string, on: boolean) {
+  useWatching.setState((s) => {
+    const next = { ...s };
+    if (on) next[identity] = true; else delete next[identity];
+    return next;
+  }, true);
+  syncTiles();
+}
+
+const SCREEN_SOURCES = [Track.Source.ScreenShare, Track.Source.ScreenShareAudio];
+const watchApplied = new Map<string, boolean>();
+
+/** Subscribes to a remote screen share only while we are watching it. */
+function applyWatching() {
+  if (!room) return;
+  const watching = useWatching.getState();
+  for (const p of room.remoteParticipants.values()) {
+    for (const source of SCREEN_SOURCES) {
+      const pub = p.getTrackPublication(source);
+      if (!pub?.trackSid) continue;
+      const want = !!watching[p.identity];
+      if (watchApplied.get(pub.trackSid) === want) continue;
+      watchApplied.set(pub.trackSid, want);
+      (pub as RemoteTrackPublication).setSubscribed(want);
+    }
+  }
+}
 
 /** Live microphone level while in a call, for the settings screen. */
 export const useMicLevel = create<{ db: number; threshold: number; open: boolean }>(() => ({ db: -100, threshold: -55, open: false }));
@@ -103,11 +139,25 @@ function syncTiles() {
   if (!room) return useCall.setState({ tiles: [] });
   const local = room.localParticipant;
   const all: Participant[] = [local, ...room.remoteParticipants.values()];
+  // When someone stops sharing, forget that we were watching, so their next stream asks again.
+  const watching = useWatching.getState();
+  const stale = Object.keys(watching).filter((id) => {
+    const p = room!.remoteParticipants.get(id);
+    return !p || !p.getTrackPublication(Track.Source.ScreenShare);
+  });
+  if (stale.length) useWatching.setState((s) => { const n = { ...s }; for (const id of stale) delete n[id]; return n; }, true);
+  applyWatching();
   useCall.setState({
-    tiles: all.map((p) => ({
-      key: p.identity, identity: p.identity, name: p.name || p.identity, local: p === local,
-      camera: visible(p, Track.Source.Camera), screen: visible(p, Track.Source.ScreenShare),
-    })),
+    tiles: all.map((p) => {
+      const isLocal = p === local;
+      const pub = p.getTrackPublication(Track.Source.ScreenShare);
+      return {
+        key: p.identity, identity: p.identity, name: p.name || p.identity, local: isLocal,
+        camera: visible(p, Track.Source.Camera),
+        screen: isLocal || useWatching.getState()[p.identity] ? visible(p, Track.Source.ScreenShare) : undefined,
+        streaming: !!pub && !pub.isMuted && (isLocal ? !!pub.track : true),
+      };
+    }),
   });
 }
 
@@ -180,6 +230,7 @@ export async function joinCall(channelId: string) {
         // LiveKit drops the publication right after this event, so look again once it is gone.
         setTimeout(syncTiles, 0);
       })
+      .on(RoomEvent.TrackPublished, syncTiles)
       .on(RoomEvent.TrackUnpublished, syncTiles)
       .on(RoomEvent.ParticipantConnected, () => { if (useCall.getState().ringing) setRinging(false); playJoin(); syncTiles(); })
       .on(RoomEvent.ParticipantDisconnected, (p: RemoteParticipant) => { setSpeaking(p.identity, false); playLeave(); syncTiles(); })
@@ -227,6 +278,8 @@ export async function leaveCall(keepError = false) {
     socket?.emit('voice:leave');
     await api('/voice', { method: 'DELETE' }).catch(() => {});
   }
+  useWatching.setState({}, true);
+  watchApplied.clear();
   useCall.setState((s) => ({ channelId: null, connecting: false, tiles: [], video: false, screen: false, error: keepError ? s.error : null }));
 }
 

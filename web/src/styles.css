@@ -358,9 +358,13 @@ svg { flex-shrink: 0; }
 .tile-avatar { display: grid; place-items: center; }
 .tile-name { position: absolute; left: 10px; bottom: 10px; background: rgba(0,0,0,.65); padding: 3px 8px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; max-width: calc(100% - 60px); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .tile-flag { color: #fca5a5; }
+.tile-watch { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; z-index: 2; }
+.tile-unwatch { position: absolute; right: 48px; top: 8px; display: inline-flex; align-items: center; gap: 6px; z-index: 2; background: rgba(0,0,0,.65); color: #fff; }
+.tile-unwatch:hover { background: rgba(0,0,0,.85); }
 .tile-live { position: absolute; top: 10px; left: 10px; }
 .tile-full { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 8px; background: rgba(0,0,0,.6); display: grid; place-items: center; opacity: 0; transition: opacity .15s; }
 .call-tile:hover .tile-full, .call-tile:fullscreen .tile-full { opacity: 1; }
+.call-tile.big .tile-full { opacity: .85; }
 .tile-full:hover { background: rgba(0,0,0,.85); }
 .call-controls { display: flex; justify-content: center; gap: 10px; flex-shrink: 0; }
 .round { width: 52px; height: 52px; border-radius: 50%; background: var(--bg-3); display: grid; place-items: center; color: var(--text); transition: background .15s; }
