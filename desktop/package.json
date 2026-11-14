@@ -36,6 +36,7 @@
       "target": "nsis"
     },
     "nsis": {
+      "artifactName": "Voka-Setup-${version}.${ext}",
       "oneClick": true,
       "perMachine": false
     },
