@@ -1,4 +1,4 @@
-import { FileText, CirclePlus, Smile, X } from 'lucide-react';
+import { FileText, CirclePlus, Send, Smile, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { useStore, set, get, addMessage, memberName } from '../lib/store';
 import { ApiError, api } from '../lib/api';
@@ -162,6 +162,8 @@ export function Composer({ channel, canAttach, placeholder }: { channel: Channel
           <button className="icon-btn" title="Emoji" onClick={() => setPicker(!picker)}><Smile size={22} /></button>
           {picker && <EmojiPicker onPick={(e) => { setText((t) => t + e); input.current?.focus(); }} onClose={() => setPicker(false)} up />}
         </div>
+        {/* Phones have no Enter-to-send habit, so there is a button too. */}
+        <button className="icon-btn send-btn" title="Enviar" disabled={!text.trim() && files.length === 0} onMouseDown={(e) => e.preventDefault()} onClick={() => void send()}><Send size={22} /></button>
       </div>
     </div>
   );

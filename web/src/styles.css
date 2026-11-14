@@ -177,7 +177,7 @@ svg { flex-shrink: 0; }
 .channel-btn { flex: 1; min-width: 0; color: inherit; }
 .channel-icon { color: var(--text-3); width: 20px; display: inline-grid; place-items: center; flex-shrink: 0; }
 .hover-only { visibility: hidden; }
-.channel-item:hover .hover-only { visibility: visible; }
+@media (hover: hover) { .channel-item:hover .hover-only { visibility: visible; } }
 .voice-users { padding: 2px 0 6px 30px; display: flex; flex-direction: column; gap: 2px; }
 .voice-user { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-2); padding: 3px 6px; border-radius: 4px; }
 .voice-user:hover { background: var(--bg-3); color: var(--text); }
@@ -247,7 +247,7 @@ svg { flex-shrink: 0; }
 .message-row { display: flex; gap: 14px; }
 .avatar-btn { align-self: flex-start; margin-top: 2px; }
 .hover-time { width: 40px; flex-shrink: 0; font-size: 11px; color: var(--text-3); text-align: right; padding-top: 3px; visibility: hidden; }
-.message:hover .hover-time { visibility: visible; }
+@media (hover: hover) { .message:hover .hover-time { visibility: visible; } }
 .message-body { flex: 1; min-width: 0; }
 .message-meta { display: flex; align-items: baseline; gap: 8px; }
 .author { font-weight: 600; }
@@ -275,7 +275,7 @@ svg { flex-shrink: 0; }
 .reaction:hover { border-color: var(--text-3); }
 .thread-link { display: inline-block; margin-top: 4px; font-size: 13px; color: var(--link); background: var(--bg-1); padding: 4px 10px; border-radius: 6px; }
 .message-actions { position: absolute; right: 16px; top: -14px; display: none; background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px; padding: 2px; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
-.message:hover .message-actions, .message-actions:has(.emoji-picker) { display: flex; }
+@media (hover: hover) { .message:hover .message-actions { display: flex; } }
 .message-actions > button { width: 30px; height: 28px; border-radius: 6px; font-size: 15px; }
 .message-actions > button:hover { background: var(--bg-3); }
 .message-actions > button.danger:hover { background: rgba(239,68,68,.2); }
@@ -363,7 +363,7 @@ svg { flex-shrink: 0; }
 .tile-unwatch:hover { background: rgba(0,0,0,.85); }
 .tile-live { position: absolute; top: 10px; left: 10px; }
 .tile-full { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 8px; background: rgba(0,0,0,.6); display: grid; place-items: center; opacity: 0; transition: opacity .15s; }
-.call-tile:hover .tile-full, .call-tile:fullscreen .tile-full { opacity: 1; }
+@media (hover: hover) { .call-tile:hover .tile-full { opacity: 1; } }
 .call-tile.big .tile-full { opacity: .85; }
 .tile-full:hover { background: rgba(0,0,0,.85); }
 .call-controls { display: flex; justify-content: center; gap: 10px; flex-shrink: 0; }
@@ -536,7 +536,7 @@ svg { flex-shrink: 0; }
 .dm-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .dm-text small { font-size: 12px; color: var(--text-3); font-weight: 400; }
 .dm-close { width: 28px; height: 28px; margin-right: 4px; display: grid; place-items: center; border-radius: 4px; color: var(--text-3); visibility: hidden; flex-shrink: 0; }
-.dm-item:hover .dm-close, .dm-item.active .dm-close { visibility: visible; }
+@media (hover: hover) { .dm-item:hover .dm-close { visibility: visible; } }
 .dm-close:hover { color: var(--text); }
 .group-icon { color: white; }
 
@@ -592,14 +592,14 @@ svg { flex-shrink: 0; }
 .group-title h3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .group-title:hover { background: var(--bg-3); }
 .group-title-edit { color: var(--text-3); opacity: 0; }
-.group-title:hover .group-title-edit { opacity: 1; }
+@media (hover: hover) { .group-title:hover .group-title-edit { opacity: 1; } }
 .rail-dm .group-icon { border-radius: inherit; }
 .group-edit-head { display: flex; gap: 18px; align-items: center; margin-bottom: 14px; }
 .group-edit-head .grow { flex: 1; }
 .group-edit-head label { margin-bottom: 6px; }
 .group-photo { position: relative; border-radius: 50%; overflow: hidden; cursor: pointer; margin: 0; flex-shrink: 0; text-transform: none; }
 .group-photo-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: rgba(0,0,0,.55); color: white; font-size: 12px; font-weight: 700; opacity: 0; transition: opacity .15s; }
-.group-photo:hover .group-photo-overlay { opacity: 1; }
+@media (hover: hover) { .group-photo:hover .group-photo-overlay { opacity: 1; } }
 .group-members { display: flex; flex-direction: column; gap: 2px; max-height: 40vh; overflow-y: auto; margin-bottom: 12px; }
 .group-member { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; }
 .group-member:hover { background: var(--bg-3); }
@@ -624,7 +624,7 @@ svg { flex-shrink: 0; }
 .sound-emoji { font-size: 18px; line-height: 1; }
 .sound-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sound-tools { display: flex; gap: 2px; padding-right: 6px; opacity: 0; }
-.sound-tile:hover .sound-tools, .sound-tile:focus-within .sound-tools { opacity: 1; }
+@media (hover: hover) { .sound-tile:hover .sound-tools { opacity: 1; } }
 .sound-tools button { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); }
 .sound-tools button:hover { background: var(--bg-4); color: var(--text); }
 .sound-tools button.danger:hover { background: var(--danger); color: white; }
@@ -986,3 +986,21 @@ kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; background: v
   .image-viewer-bar { flex-wrap: wrap; }
   .attachment-img { max-width: 100%; height: auto; }
 }
+
+/* Rules that used to share a hover line, kept for every device. */
+.message-actions:has(.emoji-picker) { display: flex; }
+.call-tile:fullscreen .tile-full { opacity: 1; }
+.dm-item.active .dm-close { visibility: visible; }
+.sound-tile:focus-within .sound-tools { opacity: 1; }
+/* On touch screens there is no hover, so the small action icons are always there. */
+@media (hover: none) {
+  .channel-item .hover-only { visibility: visible; }
+  .call-tile .tile-full { opacity: .85; }
+  .message .hover-time { visibility: hidden; }
+}
+.send-btn { display: none; }
+@media (max-width: 700px), (hover: none) {
+  .send-btn { display: grid; color: var(--accent); }
+  .send-btn:disabled { color: var(--text-3); opacity: .5; }
+}
+.send-btn, .send-btn:hover, .send-btn:focus { background: transparent; }
