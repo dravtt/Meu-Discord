@@ -25,6 +25,8 @@ interface State {
   openThreadId: string | null;
   /** Phones show one pane at a time: the lists (servers, conversations) or the chat itself. */
   mobileView: 'nav' | 'chat';
+  /** Phones show the member list as a full-screen sheet when asked. */
+  mobileMembers: boolean;
 }
 
 /** Set when code jumps straight to a conversation (a notification, an accepted call), so phones open the chat. */
@@ -49,6 +51,7 @@ export const useStore = create<State>(() => ({
   editing: null,
   openThreadId: null,
   mobileView: 'nav',
+  mobileMembers: false,
 }));
 
 export const set = useStore.setState;

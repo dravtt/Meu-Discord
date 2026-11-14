@@ -1,6 +1,6 @@
 import { ActivityLine } from './Activity';
-import { Crown } from 'lucide-react';
-import { useStore, memberName, memberColor } from '../lib/store';
+import { ArrowLeft, Crown } from 'lucide-react';
+import { useStore, set, memberName, memberColor } from '../lib/store';
 import type { Channel, Member, Server } from '../lib/types';
 import { Avatar } from './Avatar';
 import { openModal } from './Modal';
@@ -11,6 +11,7 @@ import { StyledName } from '../lib/nameStyle';
 /** Online members grouped by their highest hoisted role, then everyone offline. */
 export function MemberList({ server }: { server: Server; channel: Channel }) {
   const presence = useStore((s) => s.presence);
+  const mobileMembers = useStore((s) => s.mobileMembers);
   const online = (m: Member) => (presence[m.user.id]?.status ?? 'offline') !== 'offline';
   const hoisted = server.roles.filter((r) => r.hoist && !r.isDefault).sort((a, b) => b.position - a.position);
   const groups: { title: string; members: Member[] }[] = [];
@@ -25,7 +26,8 @@ export function MemberList({ server }: { server: Server; channel: Channel }) {
   const byName = (a: Member, b: Member) => memberName(server.id, a.user).localeCompare(memberName(server.id, b.user));
 
   return (
-    <aside className="member-list">
+    <aside className={`member-list ${mobileMembers ? 'mobile-open' : ''}`}>
+      <button className="mobile-members-close" onClick={() => set({ mobileMembers: false })}><ArrowLeft size={20} /> Membros</button>
       {groups.filter((g) => g.members.length).map((g) => (
         <div key={g.title}>
           <div className="section-title"><span>{g.title} — {g.members.length}</span></div>

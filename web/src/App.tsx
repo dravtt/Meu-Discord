@@ -66,6 +66,7 @@ export function App() {
   useEffect(() => {
     const prev = lastView.current;
     lastView.current = view;
+    set({ mobileMembers: false });
     const container = (v: typeof view) => (v.kind === 'server' ? v.serverId : 'home');
     const target = (v: typeof view) => (v.kind === 'server' ? v.channelId : v.dmId);
     if (mobileIntent.chat) { mobileIntent.chat = false; set({ mobileView: 'chat' }); }

@@ -114,7 +114,7 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
           {isDm && <button className="icon-btn" title={channel.type === 'group_dm' ? 'Adicionar amigos ao grupo' : 'Criar grupo com essa pessoa'} onClick={() => openModal(<NewGroupModal from={channel} />)}><UserPlus size={20} /></button>}
           {!isThread && <button className="icon-btn" title="Mensagens fixadas" onClick={() => openModal(<PinsModal channel={channel} />)}><Pin size={20} /></button>}
           {!isThread && !isDm && <button className="icon-btn" title="Tópicos" onClick={() => openModal(<ThreadsModal channel={channel} />)}><MessagesSquare size={20} /></button>}
-          {!isThread && !isDm && <button className={`icon-btn ${showMembers ? 'on' : ''}`} title="Lista de membros" onClick={() => set({ showMembers: !showMembers })}><Users size={20} /></button>}
+          {!isThread && !isDm && <button className={`icon-btn ${showMembers ? 'on' : ''}`} title="Lista de membros" onClick={() => (window.matchMedia('(max-width: 700px)').matches ? set({ mobileMembers: true }) : set({ showMembers: !showMembers }))}><Users size={20} /></button>}
           {!isThread && !isDm && channel.serverId && (
             <form onSubmit={(e) => { e.preventDefault(); if (search.trim()) openModal(<SearchModal serverId={channel.serverId!} query={search.trim()} />); }}>
               <input className="search" placeholder="Buscar" value={search} onChange={(e) => setSearch(e.target.value)} />
