@@ -126,7 +126,9 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
       <div className="messages" ref={scroller} onScroll={onScroll}>
         {loaded && !hasMore && (
           <div className="channel-start">
-            {channel.type === 'group_dm' ? <GroupIcon channel={channel} size={68} /> : <div className="start-icon">{icon}</div>}
+            {channel.type === 'group_dm' ? <GroupIcon channel={channel} size={68} />
+              : channel.type === 'dm' && channel.recipients?.find((u) => u.id !== me?.id) ? <span className="start-avatar"><Avatar user={channel.recipients.find((u) => u.id !== me?.id)!} size={68} /></span>
+              : <div className="start-icon">{icon}</div>}
             <h2>{isDm ? title : `Bem-vindo a ${isThread ? "" : "#"}${title}!`}</h2>
             <p className="muted">{isDm ? 'Este é o começo da sua conversa.' : 'Este é o começo deste canal.'}</p>
           </div>

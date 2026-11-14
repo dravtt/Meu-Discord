@@ -5,7 +5,14 @@ const TOKEN_KEY = 'nexo.token';
 /** API origin. Empty in the browser (same origin / Vite proxy); set by the desktop app. */
 export const API_BASE: string = (window as any).nexoNative?.apiBase ?? import.meta.env.VITE_API_BASE ?? '';
 
-export const assetUrl = (url: string | null | undefined) => (url && url.startsWith('/') ? `${API_BASE}${url}` : url ?? '');
+/** Uploaded files are served by this same server. An address saved with another host (a PC that ran it locally, an old tunnel) is turned back into a path. */
+const OLD_HOST = /^https?:\/\/(localhost|127\.0\.0\.1|[^/]*trycloudflare\.com)(:\d+)?(\/uploads\/.+)$/;
+export const assetUrl = (url: string | null | undefined) => {
+  if (!url) return '';
+  const m = OLD_HOST.exec(url);
+  if (m) url = m[3];
+  return url.startsWith('/') ? `${API_BASE}${url}` : url;
+};
 
 export function getToken(): string | null {
   try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }

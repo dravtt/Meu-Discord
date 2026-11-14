@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { assetUrl } from '../lib/api';
 import { useStore } from '../lib/store';
 import type { User } from '../lib/types';
@@ -13,10 +13,11 @@ export function colorFor(id: string) {
 
 export function Avatar({ user, size = 32, showStatus = false }: { user: Pick<User, 'id' | 'displayName' | 'avatarUrl'>; size?: number; showStatus?: boolean }) {
   const status = useStore((s) => s.presence[user.id]?.status ?? 'offline');
+  const [broken, setBroken] = useState<string | null>(null);
   return (
     <span className="avatar" style={{ width: size, height: size }}>
-      {user.avatarUrl
-        ? <img src={assetUrl(user.avatarUrl)} alt="" decoding="async" />
+      {user.avatarUrl && broken !== user.avatarUrl
+        ? <img src={assetUrl(user.avatarUrl)} alt="" decoding="async" onError={() => setBroken(user.avatarUrl)} />
         : <span className="avatar-fallback" style={{ background: colorFor(user.id), fontSize: size * 0.42 }}>{user.displayName.slice(0, 1).toUpperCase()}</span>}
       {showStatus && <StatusIcon status={status} style={{ width: size * 0.28, height: size * 0.28, borderWidth: Math.max(2, Math.round(size * 0.07)) }} />}
     </span>

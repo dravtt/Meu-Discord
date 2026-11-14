@@ -236,6 +236,7 @@ svg { flex-shrink: 0; }
 .messages > :first-child { margin-top: auto; }
 .channel-start { padding: 16px; margin-bottom: 8px; }
 .start-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--bg-4); display: grid; place-items: center; font-size: 30px; margin-bottom: 8px; }
+.start-avatar { display: inline-block; margin-bottom: 8px; }
 .channel-start h2 { font-size: 26px; margin: 8px 0 4px; }
 .day-divider { display: flex; align-items: center; margin: 16px 16px 8px; color: var(--text-3); font-size: 12px; font-weight: 600; }
 .day-divider::before, .day-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
@@ -1027,3 +1028,11 @@ kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; background: v
   .member-list.mobile-open { display: block; position: absolute; inset: 0; width: auto; z-index: 8; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   .mobile-members-close { display: flex; align-items: center; gap: 8px; width: 100%; padding: 14px 8px; font-weight: 700; font-size: 16px; position: sticky; top: 0; background: var(--bg-1); }
 }
+
+/* Phones: panes slide in gently instead of snapping. */
+@media (max-width: 700px) {
+  .app.mobile-chat .main { animation: pane-in-right .22s ease-out; }
+  .app.mobile-nav .sidebar, .app.mobile-nav .rail { animation: pane-in-left .22s ease-out; }
+}
+@keyframes pane-in-right { from { transform: translateX(28px); opacity: .4; } to { transform: none; opacity: 1; } }
+@keyframes pane-in-left { from { transform: translateX(-28px); opacity: .4; } to { transform: none; opacity: 1; } }
