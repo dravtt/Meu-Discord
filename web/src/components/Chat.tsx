@@ -81,20 +81,34 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
     return () => { el.removeEventListener('load', onLoad, true); el.removeEventListener('loadedmetadata', onLoad, true); };
   }, []);
 
+  // Older pages are fetched ahead of time (not only when the top is reached), one at a time, and the
+  // scroll position is kept exactly where the person was, so phones do not stutter or repeat messages.
+  const loadingOlder = useRef(false);
   const loadOlder = useCallback(async () => {
     const list = get().messages[channel.id];
-    if (!list?.length || !get().hasMore[channel.id]) return;
-    const el = scroller.current!;
-    const prevHeight = el.scrollHeight;
-    const older = await api<Message[]>(`/channels/${channel.id}/messages?limit=50&before=${list[0].id}`);
-    set((s) => ({ messages: { ...s.messages, [channel.id]: [...older, ...(s.messages[channel.id] ?? [])] }, hasMore: { ...s.hasMore, [channel.id]: older.length === 50 } }));
-    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight - prevHeight; });
+    if (loadingOlder.current || !list?.length || !get().hasMore[channel.id]) return;
+    loadingOlder.current = true;
+    try {
+      const older = await api<Message[]>(`/channels/${channel.id}/messages?limit=50&before=${list[0].id}`);
+      const el = scroller.current;
+      const prevHeight = el?.scrollHeight ?? 0, prevTop = el?.scrollTop ?? 0;
+      set((s) => {
+        const have = new Set((s.messages[channel.id] ?? []).map((m) => m.id));
+        return { messages: { ...s.messages, [channel.id]: [...older.filter((m) => !have.has(m.id)), ...(s.messages[channel.id] ?? [])] }, hasMore: { ...s.hasMore, [channel.id]: older.length === 50 } };
+      });
+      requestAnimationFrame(() => { if (el && !stickToBottom.current) el.scrollTop = prevTop + (el.scrollHeight - prevHeight); });
+    } catch { /* try again on the next scroll */ } finally { loadingOlder.current = false; }
   }, [channel.id]);
+
+  // Right after the first page shows, quietly fetch the next one so scrolling up is already ready.
+  useEffect(() => {
+    if (loaded && hasMore && messages.length > 0 && messages.length <= 50) void loadOlder();
+  }, [loaded, hasMore, messages.length, loadOlder]);
 
   const onScroll = () => {
     const el = scroller.current!;
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    if (el.scrollTop < 100) void loadOlder();
+    if (el.scrollTop < 1200) void loadOlder();
   };
 
   const title = isDm ? dmName(channel, me?.id) : channel.name;
