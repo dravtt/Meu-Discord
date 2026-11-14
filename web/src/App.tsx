@@ -79,7 +79,7 @@ export function App() {
     let start: { x: number; y: number; t: number; el: HTMLElement | null; active: boolean } | null = null;
     const phone = () => window.matchMedia('(max-width: 700px)').matches;
     const pane = () => document.querySelector<HTMLElement>('.app.mobile-chat .main');
-    const reset = (el: HTMLElement | null) => { if (el) { el.style.transition = ''; el.style.transform = ''; el.style.boxShadow = ''; } };
+    const reset = (el: HTMLElement | null) => { document.querySelector<HTMLElement>('.app')?.removeAttribute('data-swiping'); if (el) { el.style.transition = ''; el.style.transform = ''; el.style.boxShadow = ''; } };
     const onStart = (e: TouchEvent) => {
       const el = e.target as HTMLElement;
       const blocked = e.touches.length !== 1 || !phone() || useStore.getState().mobileView !== 'chat'
@@ -93,6 +93,7 @@ export function App() {
         if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { start = null; return; } // it is a scroll
         if (dx < 12 || dx < Math.abs(dy) * 1.5) return;
         start.active = true;
+        document.querySelector<HTMLElement>('.app')?.setAttribute('data-swiping', '');
       }
       start.el.style.transition = 'none';
       start.el.style.transform = `translateX(${Math.max(0, dx)}px)`;

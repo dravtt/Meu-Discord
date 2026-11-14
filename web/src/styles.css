@@ -964,6 +964,11 @@ kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; background: v
   .app.mobile-nav .main { display: none; }
   .app.mobile-chat { grid-template-columns: minmax(0, 1fr); }
   .app.mobile-chat .rail, .app.mobile-chat .sidebar { display: none; }
+  /* While swiping back, the list shows underneath the chat as it slides away. */
+  .app { position: relative; overflow: hidden; }
+  .app[data-swiping].mobile-chat .rail { display: flex; position: absolute; left: 0; top: 0; bottom: 0; width: 64px; }
+  .app[data-swiping].mobile-chat .sidebar { display: flex; position: absolute; left: 64px; right: 0; top: 0; bottom: 0; }
+  .app[data-swiping].mobile-chat .main { z-index: 2; background: var(--bg-2); }
   .mobile-back { display: grid; flex-shrink: 0; margin-left: -6px; }
   .call-back { position: absolute; top: 8px; left: 12px; z-index: 3; background: rgba(0,0,0,.55); border-radius: 50%; width: 40px; height: 40px; }
   .chat-header { padding: 0 8px 0 12px; gap: 6px; }
