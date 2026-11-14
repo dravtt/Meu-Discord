@@ -2,7 +2,7 @@
   "name": "@nexo/desktop",
   "productName": "Voka",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Aplicativo desktop do Voka",
   "main": "src/main.js",
   "scripts": {
@@ -49,8 +49,9 @@
     },
     "publish": [
       {
-        "provider": "generic",
-        "url": "https://SEU-SERVIDOR/downloads"
+        "provider": "github",
+        "owner": "dravtt",
+        "repo": "Meu-Discord"
       }
     ]
   },
