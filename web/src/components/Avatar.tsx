@@ -16,7 +16,7 @@ export function Avatar({ user, size = 32, showStatus = false }: { user: Pick<Use
   return (
     <span className="avatar" style={{ width: size, height: size }}>
       {user.avatarUrl
-        ? <img src={assetUrl(user.avatarUrl)} alt="" />
+        ? <img src={assetUrl(user.avatarUrl)} alt="" decoding="async" />
         : <span className="avatar-fallback" style={{ background: colorFor(user.id), fontSize: size * 0.42 }}>{user.displayName.slice(0, 1).toUpperCase()}</span>}
       {showStatus && <StatusIcon status={status} style={{ width: size * 0.28, height: size * 0.28, borderWidth: Math.max(2, Math.round(size * 0.07)) }} />}
     </span>

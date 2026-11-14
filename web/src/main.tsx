@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { applyTheme, usePrefs } from './lib/prefs';
 import '@fontsource-variable/inter';
+// Newer emoji (iPhone/Android) that an older Windows lacks: only downloaded when a glyph is missing.
+import '@fontsource/noto-color-emoji/index.css';
 // Fonts people can pick for their name (only downloaded when someone uses them).
 import '@fontsource/nunito/latin-800.css';
 import '@fontsource/playfair-display/latin-700.css';

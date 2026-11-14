@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { config } from './config.js';
@@ -27,10 +28,13 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 export function createApp() {
   const app = express();
   app.set('trust proxy', config.trustProxy);
+  // Text (JS, CSS, JSON) is sent compressed: the app is ~1 MB of JavaScript, which crawls on a phone's mobile data.
+  app.use(compression());
   app.use(cors({ origin: config.webOrigin, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use('/uploads', express.static(path.resolve(config.uploadDir), {
-    maxAge: '7d',
+    // File names are random and never reused, so browsers can keep them forever.
+    maxAge: '365d', immutable: true,
     // Uploaded HTML/SVG must not run as part of our origin.
     setHeaders: (res) => { res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"); res.setHeader('X-Content-Type-Options', 'nosniff'); },
   }));
@@ -75,6 +79,7 @@ export function createApp() {
   // In production the API also serves the web build, so web and desktop share one origin.
   const webDist = path.resolve(config.webDist);
   if (existsSync(path.join(webDist, 'index.html'))) {
+    app.use('/assets', express.static(path.join(webDist, 'assets'), { maxAge: '365d', immutable: true }));
     app.use(express.static(webDist, { index: false, maxAge: '1h' }));
     app.get(/^\/(?!api\/|uploads\/|socket\.io\/).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
   }

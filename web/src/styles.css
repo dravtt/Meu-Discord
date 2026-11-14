@@ -23,7 +23,7 @@
   --mention-self-text: #fde68a;
   --on-accent: #04211e;
   color-scheme: dark;
-  font-family: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
   color: var(--text);
@@ -42,6 +42,7 @@
 :root[data-theme='grape'] { --bg-0: #150f1f; --bg-1: #1f172d; --bg-2: #2a1f3d; --bg-3: #36294d; --bg-4: #43335e; --bg-panel: #1a1327; --border: #120d1b; --accent: #a78bfa; --accent-2: #7c3aed; --accent-soft: rgba(167, 139, 250, .16); --on-accent: #1e1036; --link: #c4b5fd; }
 :root[data-theme='forest'] { --bg-0: #0c1510; --bg-1: #142219; --bg-2: #1a2b21; --bg-3: #23392c; --bg-4: #2d4838; --bg-panel: #101b14; --border: #0a120d; --accent: #4ade80; --accent-2: #16a34a; --accent-soft: rgba(74, 222, 128, .14); --on-accent: #052e16; --link: #86efac; }
 * { box-sizing: border-box; }
+html, body { overscroll-behavior-x: none; }
 body { margin: 0; overflow: hidden; background: var(--bg-2); }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 input, textarea, select { font: inherit; color: var(--text); background: var(--bg-0); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; width: 100%; outline: none; }

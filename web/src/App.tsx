@@ -74,6 +74,30 @@ export function App() {
     // A server's first channel is picked by the app itself (undefined -> id), which is not a tap.
     else if (target(prev) !== target(view) && !(view.kind === 'server' && !target(prev))) set({ mobileView: 'chat' });
   }, [view]);
+  // Phones: swipe right anywhere on a chat to go back to the list (like the back arrow).
+  useEffect(() => {
+    let start: { x: number; y: number; t: number } | null = null;
+    const phone = () => window.matchMedia('(max-width: 700px)').matches;
+    const onStart = (e: TouchEvent) => {
+      const el = e.target as HTMLElement;
+      const blocked = e.touches.length !== 1 || !phone() || el.closest('input, textarea, .modal-backdrop, .context-menu, .emoji-picker, .call-stage, .image-viewer, pre, code');
+      start = blocked ? null : { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
+    };
+    const onEnd = (e: TouchEvent) => {
+      const s0 = start; start = null;
+      if (!s0 || useStore.getState().mobileView !== 'chat') return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - s0.x, dy = t.clientY - s0.y;
+      if (dx > 70 && Math.abs(dy) < dx * 0.5 && Date.now() - s0.t < 700) {
+        if (useStore.getState().mobileMembers) set({ mobileMembers: false });
+        else if (useStore.getState().openThreadId) set({ openThreadId: null });
+        else set({ mobileView: 'nav' });
+      }
+    };
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+    return () => { document.removeEventListener('touchstart', onStart); document.removeEventListener('touchend', onEnd); };
+  }, []);
   const badge = useStore((s) => Object.values(s.readStates).reduce((n, r) => n + r.mentions, 0));
   useEffect(() => updateBadge(badge), [badge]);
 

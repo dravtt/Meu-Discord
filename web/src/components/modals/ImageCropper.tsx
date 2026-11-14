@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { ZoomIn, ZoomOut } from 'lucide-react';
 
 const SHAPES = {
-  avatar: { w: 280, h: 280, outW: 512, outH: 512, round: true, title: 'Ajustar avatar' },
+  avatar: { w: 280, h: 280, outW: 256, outH: 256, round: true, title: 'Ajustar avatar' },
   banner: { w: 460, h: 184, outW: 1200, outH: 480, round: false, title: 'Ajustar banner' },
 };
 
