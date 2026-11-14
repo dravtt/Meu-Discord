@@ -13,6 +13,7 @@
   },
   "build": {
     "appId": "app.nexo.desktop",
+    "electronVersion": "45.0.0",
     "productName": "Voka",
     "directories": {
       "output": "out"
