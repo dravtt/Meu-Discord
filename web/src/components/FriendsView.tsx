@@ -1,4 +1,4 @@
-import { Check, MessageCircle, UserMinus, Users, X } from 'lucide-react';
+import { ArrowLeft, Check, MessageCircle, UserMinus, Users, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useStore, set } from '../lib/store';
 import { api } from '../lib/api';
@@ -30,6 +30,7 @@ export function FriendsView() {
   return (
     <section className="chat friends">
       <header className="chat-header">
+        <button className="icon-btn mobile-back" title="Voltar" onClick={() => set({ mobileView: 'nav' })}><ArrowLeft size={22} /></button>
         <span className="channel-icon"><Users size={20} /></span><h3>Amigos</h3>
         <nav className="tabs">
           {tabs.map(([id, label]) => <button key={id} className={`${tab === id ? 'active' : ''} ${id === 'add' ? 'add' : ''}`} onClick={() => setTab(id)}>{label}</button>)}

@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, getToken, setToken } from './lib/api';
 import { forgetAccount, rememberAccount } from './lib/accounts';
 import type { User } from './lib/types';
 import { bootstrap, connectSocket, socket } from './lib/socket';
-import { useStore, set, findChannel } from './lib/store';
+import { useStore, set, findChannel, mobileIntent } from './lib/store';
 import { onNotificationClick, requestNotificationPermission, updateBadge } from './lib/notify';
 import { AuthScreen, VerifyEmailScreen } from './components/AuthScreen';
 import { ServerRail } from './components/ServerRail';
@@ -59,6 +59,20 @@ export function App() {
   }, [token, verifiedAt]);
 
   // Unread mention count for the window title / taskbar badge.
+  // On phones, picking a conversation or channel moves to the chat; picking a server or Home just shows its list.
+  const view = useStore((s) => s.view);
+  const mobileView = useStore((s) => s.mobileView);
+  const lastView = useRef(view);
+  useEffect(() => {
+    const prev = lastView.current;
+    lastView.current = view;
+    const container = (v: typeof view) => (v.kind === 'server' ? v.serverId : 'home');
+    const target = (v: typeof view) => (v.kind === 'server' ? v.channelId : v.dmId);
+    if (mobileIntent.chat) { mobileIntent.chat = false; set({ mobileView: 'chat' }); }
+    else if (container(prev) !== container(view)) set({ mobileView: 'nav' });
+    // A server's first channel is picked by the app itself (undefined -> id), which is not a tap.
+    else if (target(prev) !== target(view) && !(view.kind === 'server' && !target(prev))) set({ mobileView: 'chat' });
+  }, [view]);
   const badge = useStore((s) => Object.values(s.readStates).reduce((n, r) => n + r.mentions, 0));
   useEffect(() => updateBadge(badge), [badge]);
 
@@ -71,7 +85,14 @@ export function App() {
   if (!ready) return <div className="splash"><Logo size={64} className="logo-mark pulse" /><p>Carregando o Voka…</p></div>;
 
   return (
-    <div className="app">
+    <div className={`app mobile-${mobileView}`} onClickCapture={(e) => {
+      // Tapping a channel, a conversation or Friends in the list opens it, even if it was already the selected one.
+      if ((e.target as HTMLElement).closest('.sidebar .channel-btn, .sidebar .dm-open, .sidebar .nav-item')) {
+        set({ mobileView: 'chat' });
+        mobileIntent.chat = true;
+        setTimeout(() => { mobileIntent.chat = false; }, 100);
+      }
+    }}>
       <ServerRail />
       <Sidebar />
       <MainPane />
@@ -86,6 +107,7 @@ export function App() {
 export function openChannel(channelId: string) {
   const c = findChannel(channelId);
   if (!c) return;
+  mobileIntent.chat = true;
   if (c.type === 'thread') {
     set({ view: { kind: 'server', serverId: c.serverId!, channelId: c.parentId! }, openThreadId: c.id });
   } else if (c.serverId) set({ view: { kind: 'server', serverId: c.serverId, channelId: c.id }, openThreadId: null });

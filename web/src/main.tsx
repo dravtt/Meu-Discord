@@ -18,3 +18,8 @@ applyTheme(usePrefs.getState().theme);
 usePrefs.subscribe((p) => applyTheme(p.theme));
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+
+// Lets phones install Voka as an app (https only; the worker caches nothing).
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}

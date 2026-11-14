@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Phone, PhoneOff } from 'lucide-react';
 import { api } from '../lib/api';
-import { findChannel, set, useStore } from '../lib/store';
+import { findChannel, mobileIntent, set, useStore } from '../lib/store';
 import { startRingtone } from '../lib/sounds';
 import { joinCall, useCall, useIncomingCall } from '../lib/voice';
 import { Avatar } from './Avatar';
@@ -25,6 +25,7 @@ export function IncomingCall() {
   async function accept() {
     if (!incoming) return;
     useIncomingCall.setState(null, true);
+    mobileIntent.chat = true;
     set({ view: { kind: 'home', dmId: incoming.channelId }, openThreadId: null });
     await joinCall(incoming.channelId);
   }

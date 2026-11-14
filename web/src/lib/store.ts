@@ -23,7 +23,12 @@ interface State {
   replyTo: Record<string, Message | null>;
   editing: string | null;
   openThreadId: string | null;
+  /** Phones show one pane at a time: the lists (servers, conversations) or the chat itself. */
+  mobileView: 'nav' | 'chat';
 }
+
+/** Set when code jumps straight to a conversation (a notification, an accepted call), so phones open the chat. */
+export const mobileIntent = { chat: false };
 
 export const useStore = create<State>(() => ({
   me: null,
@@ -43,6 +48,7 @@ export const useStore = create<State>(() => ({
   replyTo: {},
   editing: null,
   openThreadId: null,
+  mobileView: 'nav',
 }));
 
 export const set = useStore.setState;

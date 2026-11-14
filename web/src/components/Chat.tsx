@@ -1,4 +1,4 @@
-import { AtSign, Flag, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X, UserPlus, UserMinus, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, AtSign, Flag, FileText, Hash, MessagesSquare, Pencil, Phone, Pin, Reply, SmilePlus, Trash2, Users, X, UserPlus, UserMinus, Image as ImageIcon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore, set, get, dmName, memberName, memberColor, findChannel } from '../lib/store';
 import { api, assetUrl } from '../lib/api';
@@ -103,6 +103,7 @@ export function Chat({ channel, isThread, onClose }: { channel: Channel; isThrea
   return (
     <section className="chat">
       <header className="chat-header">
+        {!isThread && <button className="icon-btn mobile-back" title="Voltar" onClick={() => set({ mobileView: 'nav' })}><ArrowLeft size={22} /></button>}
         {channel.type !== 'group_dm' && <span className="channel-icon">{icon}</span>}
         {channel.type === 'group_dm'
           ? <button className="group-title" title="Editar grupo" onClick={() => openModal(<GroupSettings channelId={channel.id} />)}><GroupIcon channel={channel} size={24} /><h3>{title}</h3><Pencil size={14} className="group-title-edit" /></button>
@@ -194,7 +195,7 @@ function MessageItem({ message: m, prev, channel, perms }: { message: Message; p
   return (
     <>
       {day}
-      <article className={`message ${grouped && !showDay ? 'grouped' : ''} ${mentioned ? 'mentioned' : ''} ${m.pending ? 'pending' : ''}`}>
+      <article tabIndex={0} className={`message ${grouped && !showDay ? 'grouped' : ''} ${mentioned ? 'mentioned' : ''} ${m.pending ? 'pending' : ''}`}>
         {m.replyTo && (
           <div className="reply-ref" onClick={() => document.getElementById(`msg-${m.replyTo!.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
             ↱ {m.replyTo.deleted ? <em>Mensagem original apagada</em> : <><strong>@{m.replyTo.authorName}</strong> {renderContent((m.replyTo.content ?? '').replace(/\n/g, ' '), serverId)}</>}

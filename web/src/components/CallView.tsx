@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Headphones, HeadphoneOff, Maximize2, Mic, PartyPopper, MicOff, Minimize2, Monitor, MonitorOff, MonitorUp, PhoneOff, Video, VideoOff, Volume2 } from 'lucide-react';
+import { ArrowLeft, Headphones, HeadphoneOff, Maximize2, Mic, PartyPopper, MicOff, Minimize2, Monitor, MonitorOff, MonitorUp, PhoneOff, Video, VideoOff, Volume2 } from 'lucide-react';
 import type { Track } from 'livekit-client';
-import { useStore, useUser, findChannel, dmName } from '../lib/store';
+import { useStore, useUser, findChannel, dmName, set } from '../lib/store';
 import { joinCall, leaveCall, toggleDeafen, toggleMute, toggleVideo, useCall, watchStream, type Tile } from '../lib/voice';
 import { has, P } from '../lib/permissions';
 import { useSpeaking } from '../lib/speaking';
@@ -42,6 +42,8 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
   const inThisCall = call.channelId === channelId;
   const others = Object.values(voiceStates).filter((v) => v.channelId === channelId);
   const canVideo = !channel?.serverId || has(channel?.permissions, P.VIDEO);
+  // Phone browsers cannot share the screen.
+  const canShare = canVideo && !!navigator.mediaDevices?.getDisplayMedia;
 
   // A new screen share takes the spotlight automatically, like most call apps.
   const screenKeys = call.tiles.filter((t) => t.screen).map((t) => t.key).join();
@@ -60,6 +62,7 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
   if (!inThisCall) {
     return (
       <div className={`call ${compact ? 'compact' : ''}`}>
+        {!compact && <button className="icon-btn mobile-back call-back" title="Voltar" onClick={() => set({ mobileView: 'nav' })}><ArrowLeft size={22} /></button>}
         <div className="call-empty">
           <div className="call-empty-icon"><Volume2 size={36} /></div>
           <h2>{channel?.name || 'Chamada'}</h2>
@@ -80,6 +83,7 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
 
   return (
     <div className={`call ${compact ? 'compact' : ''}`} ref={stageRef}>
+      {!compact && <button className="icon-btn mobile-back call-back" title="Voltar" onClick={() => set({ mobileView: 'nav' })}><ArrowLeft size={22} /></button>}
       {call.connecting ? <div className="call-status">Conectando…</div>
         : call.ringing && <div className="call-status ringing">Chamando {channel?.type === 'dm' ? dmName(channel, me?.id) : 'o grupo'}…</div>}
       {focus ? (
@@ -104,7 +108,7 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
             {call.video ? <Video size={22} /> : <VideoOff size={22} />}
           </button>
         )}
-        {canVideo && (
+        {canShare && (
           <button className={`round ${call.screen ? 'on' : ''}`} title={call.screen ? 'Parar de transmitir' : 'Compartilhar tela'} onClick={openScreenShare}>
             {call.screen ? <MonitorOff size={22} /> : <MonitorUp size={22} />}
           </button>
