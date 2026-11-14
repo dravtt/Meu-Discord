@@ -11,21 +11,32 @@ import { useSoundBubbles } from '../lib/soundboard';
 import { userMenuProps } from './ContextMenu';
 import { Avatar } from './Avatar';
 
-/** Tracks which element (if any) is fullscreen, so buttons can show the right icon. */
+/** Tracks which element (if any) is fullscreen, so buttons can show the right icon.
+ *  iPhones cannot fullscreen an element, so there a "pseudo" fullscreen (the element covers the whole screen) is used. */
+let pseudoEl: Element | null = null;
+const currentFull = () => document.fullscreenElement ?? (pseudoEl?.isConnected ? pseudoEl : null);
 function useFullscreenElement() {
-  const [el, setEl] = useState<Element | null>(document.fullscreenElement);
+  const [el, setEl] = useState<Element | null>(currentFull());
   useEffect(() => {
-    const onChange = () => setEl(document.fullscreenElement);
+    const onChange = () => setEl(currentFull());
     document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
+    document.addEventListener('pseudofullscreen', onChange);
+    return () => { document.removeEventListener('fullscreenchange', onChange); document.removeEventListener('pseudofullscreen', onChange); };
   }, []);
   return el;
 }
 
+function setPseudo(el: Element | null) {
+  pseudoEl = el;
+  document.dispatchEvent(new Event('pseudofullscreen'));
+}
+
 function toggleFullscreen(el: Element | null) {
   if (!el) return;
-  if (document.fullscreenElement === el) void document.exitFullscreen();
-  else void el.requestFullscreen().catch(() => {});
+  if (pseudoEl === el) return setPseudo(null);
+  if (document.fullscreenElement === el) return void document.exitFullscreen();
+  if (typeof el.requestFullscreen === 'function') el.requestFullscreen().catch(() => setPseudo(el));
+  else setPseudo(el);
 }
 
 export function CallView({ channelId, compact }: { channelId: string; compact?: boolean }) {
@@ -82,7 +93,7 @@ export function CallView({ channelId, compact }: { channelId: string; compact?: 
   const isFull = fullscreen === stageRef.current && !!fullscreen;
 
   return (
-    <div className={`call ${compact ? 'compact' : ''}`} ref={stageRef}>
+    <div className={`call ${compact ? 'compact' : ''} ${isFull && !document.fullscreenElement ? 'pseudo-fs' : ''}`} ref={stageRef}>
       {!compact && <button className="icon-btn mobile-back call-back" title="Voltar" onClick={() => set({ mobileView: 'nav' })}><ArrowLeft size={22} /></button>}
       {call.connecting ? <div className="call-status">Conectando…</div>
         : call.ringing && <div className="call-status ringing">Chamando {channel?.type === 'dm' ? dmName(channel, me?.id) : 'o grupo'}…</div>}
@@ -142,7 +153,7 @@ function CallTile({ tile, big, onFocus }: { tile: Tile; big?: boolean; onFocus: 
   const person = { id: tile.identity, displayName: known?.displayName ?? tile.name, avatarUrl: known?.avatarUrl ?? null };
 
   return (
-    <div ref={ref} className={`call-tile ${isScreen ? 'screen' : ''} ${speaking ? 'speaking' : ''} ${big ? 'big' : ''}`}
+    <div ref={ref} className={`call-tile ${isScreen ? 'screen' : ''} ${speaking ? 'speaking' : ''} ${big ? 'big' : ''} ${isFull && !document.fullscreenElement ? 'pseudo-fs' : ''}`}
       data-identity={tile.identity} {...userMenuProps(tile.identity, channelServer)}
       // A double click means fullscreen, so the single-click action (spotlight) waits a moment to see if a second click follows.
       onClick={() => { clearTimeout(clickTimer.current); clickTimer.current = setTimeout(onFocus, 250); }}

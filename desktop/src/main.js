@@ -244,7 +244,7 @@ ipcMain.on('splash:retry', (event) => {
 app.whenReady().then(() => {
   // Only our server may use camera, microphone, screen and notifications.
   session.defaultSession.setPermissionRequestHandler((wc, permission, callback, details) => {
-    const allowed = ['media', 'notifications', 'clipboard-sanitized-write', 'display-capture'];
+    const allowed = ['media', 'notifications', 'clipboard-sanitized-write', 'display-capture', 'fullscreen'];
     let sameOrigin = false;
     try { sameOrigin = new URL(details.requestingUrl).origin === serverOrigin(); } catch {}
     callback(sameOrigin && allowed.includes(permission));
