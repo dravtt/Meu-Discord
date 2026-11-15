@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ImagePlus, RotateCcw } from 'lucide-react';
-import { api } from '../../lib/api';
+import { api, assetUrl } from '../../lib/api';
 import { useStore, set } from '../../lib/store';
 import { uploadImage } from '../../lib/upload';
 import { DEFAULT_NAME_STYLE, NAME_EFFECTS, NAME_FONTS, StyledName } from '../../lib/nameStyle';
@@ -14,12 +14,12 @@ const SWATCHES = ['#7533fb', '#14b8a6', '#22c55e', '#0ea5e9', '#6366f1', '#8b5cf
 
 interface Draft {
   displayName: string; pronouns: string; customStatus: string; bio: string;
-  avatarUrl: string | null; bannerUrl: string | null; profileColors: string[]; nameStyle: NameStyle; widgets: Widget[];
+  avatarUrl: string | null; bannerUrl: string | null; bannerSourceUrl: string | null; profileColors: string[]; nameStyle: NameStyle; widgets: Widget[];
 }
 
 const draftOf = (u: User): Draft => ({
   displayName: u.displayName, pronouns: u.pronouns ?? '', customStatus: u.customStatus, bio: u.bio,
-  avatarUrl: u.avatarUrl, bannerUrl: u.bannerUrl ?? null, profileColors: u.profileColors ?? [], nameStyle: u.nameStyle ?? DEFAULT_NAME_STYLE, widgets: u.widgets ?? [],
+  avatarUrl: u.avatarUrl, bannerUrl: u.bannerUrl ?? null, bannerSourceUrl: u.bannerSourceUrl ?? null, profileColors: u.profileColors ?? [], nameStyle: u.nameStyle ?? DEFAULT_NAME_STYLE, widgets: u.widgets ?? [],
 });
 
 /** Settings > Perfil: everything about how you look to others, with a live preview of your card. */
@@ -29,7 +29,7 @@ export function ProfileEditor() {
   const [draft, setDraft] = useState<Draft>(() => draftOf(me));
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [crop, setCrop] = useState<{ field: 'avatarUrl' | 'bannerUrl'; file: File } | null>(null);
+  const [crop, setCrop] = useState<{ field: 'avatarUrl' | 'bannerUrl'; file: File; original?: File } | null>(null);
   const edit = (patch: Partial<Draft>) => { setDraft((d) => ({ ...d, ...patch })); setMsg(null); };
   const editName = (patch: Partial<NameStyle>) => setDraft((d) => ({ ...d, nameStyle: { ...d.nameStyle, ...patch } }));
   const dirty = JSON.stringify(draft) !== JSON.stringify(draftOf(me));
@@ -38,14 +38,32 @@ export function ProfileEditor() {
   function pick(field: 'avatarUrl' | 'bannerUrl', file: File | undefined) {
     if (!file) return;
     if (file.type === 'image/gif') void upload(field, file);
-    else setCrop({ field, file });
+    else setCrop({ field, file, original: file });
   }
 
-  async function upload(field: 'avatarUrl' | 'bannerUrl', file: File | undefined) {
+  /** Re-open the banner's cropper on the full original picture (or the current banner, for older ones). */
+  async function adjustBanner() {
+    const src = draft.bannerSourceUrl ?? draft.bannerUrl;
+    if (!src) return;
+    setBusy('bannerUrl');
+    try {
+      const blob = await (await fetch(assetUrl(src))).blob();
+      setCrop({ field: 'bannerUrl', file: new File([blob], 'banner', { type: blob.type || 'image/jpeg' }) });
+    } catch { setMsg({ ok: false, text: 'Não consegui abrir o banner para ajustar.' }); } finally { setBusy(null); }
+  }
+
+  async function upload(field: 'avatarUrl' | 'bannerUrl', file: File | undefined, original?: File) {
     if (!file) return;
     setCrop(null);
     setBusy(field);
-    try { edit({ [field]: await uploadImage(file) }); } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } finally { setBusy(null); }
+    try {
+      const url = await uploadImage(file);
+      if (field === 'bannerUrl') {
+        // Keep the full picture too, so the visible area can be changed later. Not essential: if it fails the banner still works.
+        const source = original ? await uploadImage(original).catch(() => null) : undefined;
+        edit({ bannerUrl: url, ...(source !== undefined ? { bannerSourceUrl: source } : file.type === 'image/gif' ? { bannerSourceUrl: null } : {}) });
+      } else edit({ [field]: url });
+    } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } finally { setBusy(null); }
   }
 
   async function save() {
@@ -97,7 +115,8 @@ export function ProfileEditor() {
               {draft.avatarUrl && <button className="btn small ghost" onClick={() => edit({ avatarUrl: null })}>Remover avatar</button>}
               <span className="btn small pe-file"><ImagePlus size={14} /> {busy === 'bannerUrl' ? 'Enviando…' : 'Trocar banner'}
                 <input type="file" accept="image/*" aria-label="Trocar banner" onChange={(e) => { pick('bannerUrl', e.target.files?.[0]); e.target.value = ''; }} /></span>
-              {draft.bannerUrl && <button className="btn small ghost" onClick={() => edit({ bannerUrl: null })}>Remover banner</button>}
+              {draft.bannerUrl && !draft.bannerUrl.endsWith('.gif') && <button className="btn small" disabled={!!busy} onClick={() => void adjustBanner()}>Ajustar área do banner</button>}
+              {draft.bannerUrl && <button className="btn small ghost" onClick={() => edit({ bannerUrl: null, bannerSourceUrl: null })}>Remover banner</button>}
             </div>
           </div>
 
@@ -160,7 +179,7 @@ export function ProfileEditor() {
         </div>
       </div>
 
-      {crop && <ImageCropper file={crop.file} shape={crop.field === 'avatarUrl' ? 'avatar' : 'banner'} onCancel={() => setCrop(null)} onDone={(f) => void upload(crop.field, f)} />}
+      {crop && <ImageCropper file={crop.file} shape={crop.field === 'avatarUrl' ? 'avatar' : 'banner'} onCancel={() => setCrop(null)} onDone={(f) => void upload(crop.field, f, crop.original)} />}
       {(dirty || msg) && (
         <div className="pe-save-bar">
           <span className={msg ? (msg.ok ? 'ok' : 'error') : ''}>{msg ? msg.text : 'Você tem alterações não salvas.'}</span>

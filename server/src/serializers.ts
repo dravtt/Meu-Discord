@@ -11,6 +11,7 @@ export interface UserRow {
   status: string;
   created_at: Date;
   banner_url: string | null;
+  banner_source_url: string | null;
   pronouns: string;
   profile_colors: string[];
   name_font: string;
@@ -19,7 +20,7 @@ export interface UserRow {
   activity?: unknown;
 }
 
-export const USER_COLUMNS = 'id, username, display_name, avatar_url, bio, custom_status, status, created_at, banner_url, pronouns, profile_colors, name_font, name_effect, name_colors, activity';
+export const USER_COLUMNS = 'id, username, display_name, avatar_url, bio, custom_status, status, created_at, banner_url, banner_source_url, pronouns, profile_colors, name_font, name_effect, name_colors, activity';
 
 export async function publicUser(u: UserRow) {
   const status = await visibleStatus(u.id, u.status);
@@ -33,6 +34,7 @@ export async function publicUser(u: UserRow) {
     status,
     createdAt: u.created_at,
     bannerUrl: u.banner_url ?? null,
+    bannerSourceUrl: u.banner_source_url ?? null,
     pronouns: u.pronouns ?? '',
     profileColors: u.profile_colors ?? [],
     nameStyle: { font: u.name_font ?? 'default', effect: u.name_effect ?? 'solid', colors: u.name_colors ?? [] },

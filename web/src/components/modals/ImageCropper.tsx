@@ -13,7 +13,10 @@ const SHAPES = {
 export function ImageCropper({ file, shape, onDone, onCancel }: {
   file: File; shape: keyof typeof SHAPES; onDone: (f: File) => void; onCancel: () => void;
 }) {
-  const s = SHAPES[shape];
+  // Phones are narrower than the frame: the whole thing is scaled down, keeping its proportions.
+  const full = SHAPES[shape];
+  const scale = Math.min(1, (Math.min(window.innerWidth, 520) - 72) / full.w);
+  const s = { ...full, w: Math.round(full.w * scale), h: Math.round(full.h * scale) };
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pos, setPos] = useState({ x: 0, y: 0 });

@@ -380,6 +380,7 @@ authRouter.patch('/users/@me', requireAuth, async (req, res) => {
     customStatus: z.string().max(128).optional(),
     status: z.enum(['online', 'idle', 'dnd', 'invisible']).optional(),
     bannerUrl: uploadUrl.nullable().optional(),
+    bannerSourceUrl: uploadUrl.nullable().optional(),
     pronouns: z.string().trim().max(40).optional(),
     profileColors: z.array(hexColor).max(2).optional(),
     nameStyle: z.object({
@@ -410,11 +411,13 @@ authRouter.patch('/users/@me', requireAuth, async (req, res) => {
        name_font = COALESCE($12, name_font),
        name_effect = COALESCE($13, name_effect),
        name_colors = COALESCE($14, name_colors),
-       widgets = COALESCE($15::jsonb, widgets)
+       widgets = COALESCE($15::jsonb, widgets),
+       banner_source_url = CASE WHEN $16::boolean THEN $17 ELSE banner_source_url END
      WHERE id = $1 RETURNING ${USER_COLUMNS}, widgets`,
     [uid(req), body.displayName ?? null, body.avatarUrl !== undefined, body.avatarUrl ?? null, body.bio ?? null, body.customStatus ?? null, body.status ?? null,
       body.bannerUrl !== undefined, body.bannerUrl ?? null, body.pronouns ?? null, body.profileColors ?? null,
-      body.nameStyle?.font ?? null, body.nameStyle?.effect ?? null, body.nameStyle?.colors ?? null, body.widgets ? JSON.stringify(body.widgets) : null]);
+      body.nameStyle?.font ?? null, body.nameStyle?.effect ?? null, body.nameStyle?.colors ?? null, body.widgets ? JSON.stringify(body.widgets) : null,
+      body.bannerSourceUrl !== undefined, body.bannerSourceUrl ?? null]);
   await broadcastPresence(uid(req));
   const pub = await publicUser(user!);
   await broadcastUserUpdate(uid(req), pub);

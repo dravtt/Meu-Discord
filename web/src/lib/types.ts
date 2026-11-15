@@ -10,6 +10,7 @@ export interface User {
   status: Status;
   createdAt?: string;
   bannerUrl?: string | null;
+  bannerSourceUrl?: string | null;
   pronouns?: string;
   /** Profile theme: one color, or two for a gradient. */
   profileColors?: string[];
